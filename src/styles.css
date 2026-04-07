@@ -1,0 +1,97 @@
+:root {
+  color-scheme: light dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: PingFang SC, Hiragino Sans GB, Microsoft YaHei, sans-serif;
+  background: #f6f7fb;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #141414;
+  }
+}
+
+.page-wrap {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.hero {
+  margin-bottom: 16px;
+}
+
+.hero-title {
+  margin-bottom: 0 !important;
+}
+
+.content-area {
+  margin-top: 14px;
+}
+
+.dashboard-config {
+  margin-top: 10px;
+}
+
+.toolbox-section {
+  margin-top: 6px;
+}
+
+.toolbox-title {
+  margin-bottom: 12px !important;
+}
+
+.tool-card {
+  border-radius: 12px;
+}
+
+.tool-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.tool-entry {
+  border-radius: 12px;
+}
+
+.todo-page-head {
+  margin-bottom: 12px;
+}
+
+.tool-title-row {
+  margin-bottom: 12px;
+}
+
+.tool-title {
+  margin: 0 !important;
+}
+
+.todo-list {
+  margin-top: 12px;
+}
+
+.todo-done {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+@media (max-width: 900px) {
+  .page-wrap {
+    padding: 14px;
+  }
+}
