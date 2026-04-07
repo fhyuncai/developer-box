@@ -1,0 +1,186 @@
+:root {
+  color-scheme: light;
+  --app-bg: #ffffff;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --app-bg: #141414;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: PingFang SC, Hiragino Sans GB, Microsoft YaHei, sans-serif;
+  background: var(--app-bg);
+}
+
+.page-wrap {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 12px 24px 24px;
+  max-height: 100vh;
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(128, 128, 128, 0.45) transparent;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: rgba(128, 128, 128, 0.45);
+    border-radius: 999px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+html,
+body,
+#root,
+.ant-typography,
+.ant-statistic,
+.ant-card-body,
+.ant-list-item {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+input,
+textarea,
+[contenteditable='true'] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.page-breadcrumb {
+  margin-bottom: 0;
+}
+
+.page-nav-row {
+  margin-bottom: 12px;
+}
+
+.breadcrumb-link {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+}
+
+.breadcrumb-link:hover {
+  color: #1677ff;
+}
+
+.hero {
+  margin-bottom: 16px;
+}
+
+.hero-title {
+  margin-bottom: 0 !important;
+}
+
+.hero-desc {
+  margin-top: 6px;
+  margin-bottom: 0;
+}
+
+.section-title {
+  margin-bottom: 10px !important;
+}
+
+.content-area {
+  margin-top: 14px;
+}
+
+.toolbox-portal {
+  border-radius: 12px;
+}
+
+.toolbox-section {
+  margin-top: 6px;
+}
+
+.toolbox-title {
+  margin-bottom: 12px !important;
+}
+
+.toolbox-page,
+.tool-page {
+  margin-top: 0;
+}
+
+.tool-card {
+  border-radius: 12px;
+}
+
+.tool-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 25%);
+  gap: 12px;
+}
+
+.tool-entry {
+  border-radius: 12px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.tool-entry:hover {
+  transform: translateY(-2px);
+}
+
+.dashboard-tile {
+  min-height: 110px;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+}
+
+.tool-entry-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.todo-page-head {
+  margin-bottom: 12px;
+}
+
+.tool-title-row {
+  margin-bottom: 12px;
+}
+
+.tool-title {
+  margin: 0 !important;
+}
+
+.todo-list {
+  margin-top: 12px;
+}
+
+.todo-done {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+@media (max-width: 900px) {
+  .page-wrap {
+    padding: 8px 14px 14px;
+  }
+}

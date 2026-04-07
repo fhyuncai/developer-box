@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, nativeTheme } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, nativeTheme } = require('electron');
 const path = require('path');
 const os = require('os');
 const fs = require('fs/promises');
@@ -29,19 +29,75 @@ function getSystemTheme() {
   return nativeTheme.shouldUseDarkColors ? 'dark' : 'light';
 }
 
+function sendOpenSettingsToFocusedWindow() {
+  const focused = BrowserWindow.getFocusedWindow();
+  if (focused) {
+    focused.webContents.send('menu-open-settings');
+  }
+}
+
+function setupMenu() {
+  const isDev = !!process.env.VITE_DEV_SERVER_URL;
+  const customMenu = {
+    label: '应用',
+    submenu: [
+      { label: '设置', accelerator: 'CmdOrCtrl+,', click: sendOpenSettingsToFocusedWindow },
+      { type: 'separator' },
+      { label: '退出', role: 'quit' }
+    ]
+  };
+
+  // Dev: custom menu + default workflow menus coexist.
+  // Prod: keep only custom menu.
+  const template = isDev
+    ? [
+        ...(process.platform === 'darwin'
+          ? [
+              {
+                label: app.name,
+                submenu: [
+                  { role: 'about' },
+                  { type: 'separator' },
+                  { role: 'services' },
+                  { type: 'separator' },
+                  { role: 'hide' },
+                  { role: 'hideOthers' },
+                  { role: 'unhide' },
+                  { type: 'separator' },
+                  { role: 'quit' }
+                ]
+              }
+            ]
+          : []),
+        customMenu,
+        { label: '视图', submenu: [{ role: 'reload' }, { role: 'forceReload' }, { role: 'toggleDevTools' }, { type: 'separator' }, { role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' }, { role: 'togglefullscreen' }] },
+        { label: '窗口', submenu: [{ role: 'minimize' }, { role: 'close' }] }
+      ]
+    : [customMenu];
+
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
 function createWindow() {
   const window = new BrowserWindow({
-    width: 1200,
-    height: 820,
+    width: 980,
+    height: 640,
     minWidth: 980,
     minHeight: 640,
     title: 'Developer Box',
+    show: false,
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#141414' : '#ffffff',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false
     }
   });
+
+  window.once('ready-to-show', () => {
+    window.show();
+  });
+
 
   const devServerUrl = process.env.VITE_DEV_SERVER_URL;
   if (devServerUrl) {
@@ -53,6 +109,7 @@ function createWindow() {
 
 app.whenReady().then(async () => {
   await ensureDataDir();
+  setupMenu();
   createWindow();
 
   nativeTheme.on('updated', () => {

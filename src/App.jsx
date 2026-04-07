@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { App as AntdApp, Button, Card, Checkbox, ConfigProvider, Flex, Modal, Radio, Space, Statistic, Typography, theme } from 'antd';
-import { CheckCircleTwoTone, RightOutlined, SettingOutlined, ToolTwoTone } from '@ant-design/icons';
-import TodoList from './components/TodoList';
+import { App as AntdApp, ConfigProvider, Flex, Modal, Radio, Typography, theme } from 'antd';
+import HomePage from './pages/HomePage';
+import ToolboxPage from './pages/ToolboxPage';
+import TodoPage from './pages/TodoPage';
 
 const { defaultAlgorithm, darkAlgorithm } = theme;
 
@@ -9,12 +10,13 @@ function getEffectiveTheme(themeMode, systemTheme) {
   return themeMode === 'system' ? systemTheme : themeMode;
 }
 
+const DEFAULT_PINNED = ['toolCount', 'doneCount'];
+const DEFAULT_DASHBOARD_ORDER = ['toolCount', 'doneCount'];
+const TOOLS = [{ key: 'todo', title: 'Todo List', description: '管理日常任务与进度' }];
 const DASHBOARD_ITEMS = [
-  { label: '工具模块', value: 'toolCount' },
-  { label: '已完成任务', value: 'doneCount' }
+  { key: 'toolCount', label: '工具模块' },
+  { key: 'doneCount', label: '已完成任务' }
 ];
-
-const DEFAULT_PINNED = DASHBOARD_ITEMS.map((item) => item.value);
 
 export default function App() {
   const [themeMode, setThemeMode] = useState('system');
@@ -22,11 +24,13 @@ export default function App() {
   const [todos, setTodos] = useState([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [pinnedBoards, setPinnedBoards] = useState(DEFAULT_PINNED);
-  const [activeTool, setActiveTool] = useState('toolbox');
+  const [dashboardOrder, setDashboardOrder] = useState(DEFAULT_DASHBOARD_ORDER);
+  const [pageStack, setPageStack] = useState(['home']);
 
   useEffect(() => {
     let mounted = true;
-    let unsubscribe = null;
+    let unsubscribeTheme = null;
+    let unsubscribeMenuSettings = null;
 
     async function bootstrap() {
       const [settings, list, sysTheme] = await Promise.all([
@@ -41,11 +45,16 @@ export default function App() {
 
       setThemeMode(settings?.themeMode ?? 'system');
       setPinnedBoards(Array.isArray(settings?.pinnedBoards) ? settings.pinnedBoards : DEFAULT_PINNED);
+      setDashboardOrder(Array.isArray(settings?.dashboardOrder) ? settings.dashboardOrder : DEFAULT_DASHBOARD_ORDER);
       setTodos(Array.isArray(list) ? list : []);
       setSystemTheme(sysTheme);
 
-      unsubscribe = window.developerBox.onSystemThemeChange((value) => {
+      unsubscribeTheme = window.developerBox.onSystemThemeChange((value) => {
         setSystemTheme(value);
+      });
+
+      unsubscribeMenuSettings = window.developerBox.onOpenSettingsFromMenu(() => {
+        setSettingsOpen(true);
       });
     }
 
@@ -53,13 +62,16 @@ export default function App() {
 
     return () => {
       mounted = false;
-      if (unsubscribe) {
-        unsubscribe();
-      }
+      if (unsubscribeTheme) unsubscribeTheme();
+      if (unsubscribeMenuSettings) unsubscribeMenuSettings();
     };
   }, []);
 
   const effectiveTheme = useMemo(() => getEffectiveTheme(themeMode, systemTheme), [themeMode, systemTheme]);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', effectiveTheme);
+  }, [effectiveTheme]);
 
   const antdTheme = useMemo(
     () => ({
@@ -75,23 +87,24 @@ export default function App() {
 
   const doneCount = todos.filter((item) => item.done).length;
 
-  const saveMergedSettings = async (nextThemeMode, nextPinnedBoards) => {
+  const saveMergedSettings = async (nextThemeMode, nextPinnedBoards, nextDashboardOrder) => {
     await window.developerBox.saveSettings({
       themeMode: nextThemeMode,
-      pinnedBoards: nextPinnedBoards
+      pinnedBoards: nextPinnedBoards,
+      dashboardOrder: nextDashboardOrder
     });
   };
 
   const handleThemeModeChange = async (event) => {
     const next = event.target.value;
     setThemeMode(next);
-    await saveMergedSettings(next, pinnedBoards);
+    await saveMergedSettings(next, pinnedBoards, dashboardOrder);
   };
 
-  const handlePinnedBoardsChange = async (checkedValues) => {
-    const next = checkedValues;
-    setPinnedBoards(next);
-    await saveMergedSettings(themeMode, next);
+  const handleDashboardConfigChange = async (nextPinnedBoards, nextDashboardOrder) => {
+    setPinnedBoards(nextPinnedBoards);
+    setDashboardOrder(nextDashboardOrder);
+    await saveMergedSettings(themeMode, nextPinnedBoards, nextDashboardOrder);
   };
 
   const handleTodosChange = async (next) => {
@@ -99,94 +112,64 @@ export default function App() {
     await window.developerBox.saveTodos(next);
   };
 
+  const currentPage = pageStack[pageStack.length - 1] || 'home';
+
+  const goToPage = (nextPage) => {
+    setPageStack((prev) => {
+      const current = prev[prev.length - 1];
+      if (current === nextPage) {
+        return prev;
+      }
+      return [...prev, nextPage];
+    });
+  };
+
+  const goBack = () => {
+    setPageStack((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev));
+  };
+
+  const goHome = () => {
+    setPageStack(['home']);
+  };
+
+  const goToolbox = () => {
+    setPageStack(['home', 'toolbox']);
+  };
+
   return (
     <ConfigProvider theme={antdTheme}>
       <AntdApp>
         <main className="page-wrap">
-          <section className="hero">
-            <Flex justify="space-between" align="center" wrap="wrap" gap={12}>
-              <Typography.Title level={2} className="hero-title">
-                Developer Box
-              </Typography.Title>
-              <Button icon={<SettingOutlined />} onClick={() => setSettingsOpen(true)}>
-                设置
-              </Button>
-            </Flex>
-            <Card className="dashboard-config" size="small">
-              <Flex vertical gap={8}>
-                <Typography.Text strong>固定看板内容</Typography.Text>
-                <Checkbox.Group options={DASHBOARD_ITEMS} value={pinnedBoards} onChange={handlePinnedBoardsChange} />
-              </Flex>
-            </Card>
+          {currentPage === 'home' && (
+            <HomePage
+              pinnedBoards={pinnedBoards}
+              dashboardOrder={dashboardOrder}
+              dashboardItems={DASHBOARD_ITEMS}
+              doneCount={doneCount}
+              toolCount={TOOLS.length}
+              onDashboardConfigChange={handleDashboardConfigChange}
+              onOpenToolbox={() => goToPage('toolbox')}
+            />
+          )}
 
-            <div className="content-area">
-              <Space size={12} wrap>
-                {pinnedBoards.includes('toolCount') && (
-                  <Card size="small">
-                    <Statistic title="工具模块" value={1} prefix={<ToolTwoTone />} />
-                  </Card>
-                )}
-                {pinnedBoards.includes('doneCount') && (
-                  <Card size="small">
-                    <Statistic
-                      title="已完成任务"
-                      value={doneCount}
-                      prefix={<CheckCircleTwoTone twoToneColor="#52c41a" />}
-                    />
-                  </Card>
-                )}
-                {pinnedBoards.length === 0 && (
-                  <Card size="small">
-                    <Typography.Text type="secondary">已隐藏全部看板内容，可在上方重新勾选。</Typography.Text>
-                  </Card>
-                )}
-              </Space>
-            </div>
-          </section>
+          {currentPage === 'toolbox' && (
+            <ToolboxPage
+              tools={TOOLS}
+              onBack={goBack}
+              onBackHome={goHome}
+              onOpenTool={(toolKey) => goToPage(toolKey)}
+            />
+          )}
 
-          <section className="content-area">
-            {activeTool === 'toolbox' && (
-              <section className="toolbox-section">
-                <Typography.Title level={4} className="toolbox-title">
-                  工具箱
-                </Typography.Title>
-                <div className="tool-grid">
-                  <Card
-                    hoverable
-                    className="tool-entry"
-                    onClick={() => setActiveTool('todo')}
-                    actions={[
-                      <Button type="link" onClick={() => setActiveTool('todo')}>
-                        打开
-                      </Button>
-                    ]}
-                  >
-                    <Flex justify="space-between" align="center">
-                      <Typography.Text strong>Todo List</Typography.Text>
-                      <RightOutlined />
-                    </Flex>
-                    <Typography.Paragraph type="secondary" style={{ marginBottom: 0, marginTop: 8 }}>
-                      管理日常任务与进度
-                    </Typography.Paragraph>
-                  </Card>
-                </div>
-              </section>
-            )}
-
-            {activeTool === 'todo' && (
-              <section>
-                <Flex justify="space-between" align="center" className="todo-page-head">
-                  <Typography.Title level={4} className="toolbox-title">
-                    Todo List
-                  </Typography.Title>
-                  <Button onClick={() => setActiveTool('toolbox')}>返回工具箱</Button>
-                </Flex>
-                <Card size="small">
-                  <TodoList todos={todos} onChange={handleTodosChange} />
-                </Card>
-              </section>
-            )}
-          </section>
+          {currentPage === 'todo' && (
+            <TodoPage
+              todos={todos}
+              onTodosChange={handleTodosChange}
+              onBack={goBack}
+              onBackToolbox={goToolbox}
+              onBackHome={goHome}
+            />
+          )}
 
           <Modal
             title="设置"
