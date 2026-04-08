@@ -16,5 +16,9 @@ contextBridge.exposeInMainWorld('developerBox', {
     const listener = (_, value) => callback(value);
     ipcRenderer.on('system-theme-changed', listener);
     return () => ipcRenderer.removeListener('system-theme-changed', listener);
-  }
+  },
+  getAlwaysOnTop: () => ipcRenderer.invoke('window:get-always-on-top'),
+  setAlwaysOnTop: (flag) => ipcRenderer.invoke('window:set-always-on-top', flag),
+  loadMarkdown: () => ipcRenderer.invoke('markdown:load'),
+  saveMarkdown: (content) => ipcRenderer.invoke('markdown:save', content)
 });

@@ -7,7 +7,7 @@ const HOME_MENU_ITEMS = [
   {
     key: 'toolbox',
     title: '工具箱',
-    description: '进入工具箱页面，查看全部工具'
+    description: '开发者常用工具'
   },
   {
     key: 'workspace',
@@ -28,7 +28,7 @@ export default function HomePage({
   doneCount,
   toolCount,
   onDashboardConfigChange,
-  onOpenToolbox
+  onOpenPage
 }) {
   const [editMode, setEditMode] = useState(false);
   const [draggingKey, setDraggingKey] = useState(null);
@@ -181,7 +181,7 @@ export default function HomePage({
         </Typography.Title>
         <div className="tool-grid">
           {HOME_MENU_ITEMS.map((item) => (
-            <Card key={item.key} hoverable className="tool-entry" onClick={onOpenToolbox}>
+            <Card key={item.key} hoverable className="tool-entry" onClick={() => onOpenPage(item.key)}>
               <div className="tool-entry-head">
                 <Typography.Text strong>{item.title}</Typography.Text>
                 <RightOutlined />

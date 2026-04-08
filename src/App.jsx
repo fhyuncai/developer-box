@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { App as AntdApp, ConfigProvider, Flex, Modal, Radio, Typography, theme } from 'antd';
+import { App as AntdApp, ConfigProvider, Flex, Modal, Radio, Typography, Divider, theme } from 'antd';
 import HomePage from './pages/HomePage';
 import ToolboxPage from './pages/ToolboxPage';
 import TodoPage from './pages/TodoPage';
+import ToolPage from './pages/ToolPage';
+import TitleBar from './components/TitleBar';
 
 const { defaultAlgorithm, darkAlgorithm } = theme;
 
@@ -12,7 +14,30 @@ function getEffectiveTheme(themeMode, systemTheme) {
 
 const DEFAULT_PINNED = ['toolCount', 'doneCount'];
 const DEFAULT_DASHBOARD_ORDER = ['toolCount', 'doneCount'];
-const TOOLS = [{ key: 'todo', title: 'Todo List', description: '管理日常任务与进度' }];
+const TOOLS = [
+  { key: 'todo', title: 'Todo List', description: '管理日常任务与进度', group: '任务管理' },
+  { key: 'base64', title: 'Base64 编解码', description: 'Base64 编码与解码，支持 Unicode', group: '编码 / 解码' },
+  { key: 'url-codec', title: 'URL 编解码', description: 'URL percent 编码与解码', group: '编码 / 解码' },
+  { key: 'unicode', title: 'Unicode 编码转换', description: '文本与 \\uXXXX 转义互转', group: '编码 / 解码' },
+  { key: 'radix', title: '进制转换', description: '二 / 八 / 十 / 十六进制互转', group: '进制 / 颜色' },
+  { key: 'rgb-hex', title: 'RGB ↔ HEX', description: 'RGB 与 HEX 颜色格式互转', group: '进制 / 颜色' },
+  { key: 'hash', title: 'MD5 / SHA 哈希', description: 'MD5、SHA-1、SHA-256、SHA-512', group: '加密 / 安全' },
+  { key: 'aes', title: 'AES 加解密', description: 'AES 对称加密与解密', group: '加密 / 安全' },
+  { key: 'jwt', title: 'JWT 解析', description: '解析 Header、Payload，检查过期', group: '加密 / 安全' },
+  { key: 'json', title: 'JSON 格式化 / 压缩', description: 'JSON 美化与压缩', group: '格式化' },
+  { key: 'sql', title: 'SQL 格式化', description: '支持多种 SQL 方言格式化', group: '格式化' },
+  { key: 'css', title: 'CSS / SCSS 格式化', description: 'CSS 代码美化与压缩', group: '格式化' },
+  { key: 'markdown', title: 'Markdown 编辑器', description: '左编辑右预览 Markdown', group: '文本处理' },
+  { key: 'diff', title: '文本差异对比', description: '高亮显示两段文本的异同', group: '文本处理' },
+  { key: 'regex', title: '正则表达式验证', description: '实时高亮匹配结果', group: '文本处理' },
+  { key: 'word-count', title: '字数统计', description: '字符 / 单词 / 行 / 字节数统计', group: '文本处理' },
+  { key: 'case-convert', title: '大小写转换', description: 'camelCase / snake_case 等多种格式', group: '文本处理' },
+  { key: 'uuid', title: 'UUID 生成', description: '批量生成 UUID v4', group: '生成工具' },
+  { key: 'qrcode', title: '二维码生成', description: '文本或链接生成二维码并可下载', group: '生成工具' },
+  { key: 'image-base64', title: '图片 Base64 转换', description: '图片与 Base64 数据互转预览', group: '生成工具' },
+  { key: 'timestamp', title: '时间戳转换', description: 'Unix 时间戳与日期时间互转', group: '时间 / 日期' },
+  { key: 'cron', title: 'Cron 表达式', description: '解析描述 + 预览下次执行时间', group: '时间 / 日期' },
+];
 const DASHBOARD_ITEMS = [
   { key: 'toolCount', label: '工具模块' },
   { key: 'doneCount', label: '已完成任务' }
@@ -139,7 +164,9 @@ export default function App() {
   return (
     <ConfigProvider theme={antdTheme}>
       <AntdApp>
-        <main className="page-wrap">
+        <div className="app-shell">
+          <TitleBar onOpenSettings={() => setSettingsOpen(true)} />
+          <main className="page-wrap">
           {currentPage === 'home' && (
             <HomePage
               pinnedBoards={pinnedBoards}
@@ -148,7 +175,7 @@ export default function App() {
               doneCount={doneCount}
               toolCount={TOOLS.length}
               onDashboardConfigChange={handleDashboardConfigChange}
-              onOpenToolbox={() => goToPage('toolbox')}
+              onOpenPage={(pageKey) => goToPage(pageKey)}
             />
           )}
 
@@ -165,6 +192,16 @@ export default function App() {
             <TodoPage
               todos={todos}
               onTodosChange={handleTodosChange}
+              onBack={goBack}
+              onBackToolbox={goToolbox}
+              onBackHome={goHome}
+            />
+          )}
+
+          {!['home', 'toolbox', 'todo'].includes(currentPage) && (
+            <ToolPage
+              toolKey={currentPage}
+              toolTitle={TOOLS.find((t) => t.key === currentPage)?.title ?? ''}
               onBack={goBack}
               onBackToolbox={goToolbox}
               onBackHome={goHome}
@@ -188,9 +225,18 @@ export default function App() {
               <Typography.Text type="secondary">
                 当前生效：{effectiveTheme === 'dark' ? '深色' : '浅色'}
               </Typography.Text>
+              <Divider size="small" />
+              <Typography.Text strong>关于</Typography.Text>
+              <Typography.Title level={5} type="secondary" style={{ margin: 0 }}>
+                Developer Box 0.0.1
+              </Typography.Title>
+              <Typography.Text type="secondary">
+                &copy; FHYunCai
+              </Typography.Text>
             </Flex>
           </Modal>
-        </main>
+          </main>
+        </div>
       </AntdApp>
     </ConfigProvider>
   );

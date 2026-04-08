@@ -38,42 +38,79 @@ function sendOpenSettingsToFocusedWindow() {
 
 function setupMenu() {
   const isDev = !!process.env.VITE_DEV_SERVER_URL;
+  const isMac = process.platform === 'darwin';
+
+  const macAppMenu = {
+    label: app.name,
+    submenu: [
+      { role: 'about', label: `关于 ${app.name}` },
+      { type: 'separator' },
+      { role: 'services', label: '服务' },
+      { type: 'separator' },
+      { role: 'hide', label: `隐藏 ${app.name}` },
+      { role: 'hideOthers', label: '隐藏其他' },
+      { role: 'unhide', label: '显示全部' },
+      { type: 'separator' },
+      { role: 'quit', label: `退出 ${app.name}` }
+    ]
+  };
+
   const customMenu = {
     label: '应用',
     submenu: [
       { label: '设置', accelerator: 'CmdOrCtrl+,', click: sendOpenSettingsToFocusedWindow },
       { type: 'separator' },
-      { label: '退出', role: 'quit' }
+      { role: 'quit', label: '退出' }
     ]
   };
 
-  // Dev: custom menu + default workflow menus coexist.
-  // Prod: keep only custom menu.
-  const template = isDev
-    ? [
-        ...(process.platform === 'darwin'
-          ? [
-              {
-                label: app.name,
-                submenu: [
-                  { role: 'about' },
-                  { type: 'separator' },
-                  { role: 'services' },
-                  { type: 'separator' },
-                  { role: 'hide' },
-                  { role: 'hideOthers' },
-                  { role: 'unhide' },
-                  { type: 'separator' },
-                  { role: 'quit' }
-                ]
-              }
-            ]
-          : []),
-        customMenu,
-        { label: '视图', submenu: [{ role: 'reload' }, { role: 'forceReload' }, { role: 'toggleDevTools' }, { type: 'separator' }, { role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' }, { role: 'togglefullscreen' }] },
-        { label: '窗口', submenu: [{ role: 'minimize' }, { role: 'close' }] }
-      ]
-    : [customMenu];
+  const editMenu = {
+    label: '编辑',
+    submenu: [
+      { role: 'undo', label: '撤销' },
+      { role: 'redo', label: '重做' },
+      { type: 'separator' },
+      { role: 'cut', label: '剪切' },
+      { role: 'copy', label: '复制' },
+      { role: 'paste', label: '粘贴' },
+      ...(isMac ? [{ role: 'pasteAndMatchStyle', label: '粘贴并匹配格式' }] : []),
+      { role: 'delete', label: '删除' },
+      { role: 'selectAll', label: '全选' }
+    ]
+  };
+
+  const viewMenu = {
+    label: '视图',
+    submenu: [
+      { role: 'reload', label: '重新加载' },
+      { role: 'forceReload', label: '强制重新加载' },
+      { role: 'toggleDevTools', label: '开发者工具' },
+      { type: 'separator' },
+      { role: 'resetZoom', label: '实际大小' },
+      { role: 'zoomIn', label: '放大' },
+      { role: 'zoomOut', label: '缩小' },
+      { type: 'separator' },
+      { role: 'togglefullscreen', label: '切换全屏' }
+    ]
+  };
+
+  const windowMenu = {
+    label: '窗口',
+    submenu: [
+      { role: 'minimize', label: '最小化' },
+      { role: 'zoom', label: '缩放' },
+      ...(isMac
+        ? [{ type: 'separator' }, { role: 'front', label: '全部置于顶层' }]
+        : [{ role: 'close', label: '关闭' }])
+    ]
+  };
+
+  const template = [
+    ...(isMac ? [macAppMenu] : []),
+    customMenu,
+    editMenu,
+    ...(isDev ? [viewMenu, windowMenu] : [])
+  ];
 
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
@@ -86,6 +123,8 @@ function createWindow() {
     minHeight: 640,
     title: 'Developer Box',
     show: false,
+    titleBarStyle: 'hiddenInset',
+    trafficLightPosition: { x: 14, y: 14 },
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#141414' : '#ffffff',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -147,4 +186,30 @@ ipcMain.handle('todos:get', async () => {
 ipcMain.handle('todos:set', async (_, payload) => {
   await writeJson(TODOS_FILE, payload);
   return payload;
+});
+
+ipcMain.handle('window:get-always-on-top', () => {
+  const win = BrowserWindow.getFocusedWindow();
+  return win ? win.isAlwaysOnTop() : false;
+});
+
+ipcMain.handle('window:set-always-on-top', (_, flag) => {
+  const win = BrowserWindow.getFocusedWindow();
+  if (win) win.setAlwaysOnTop(flag);
+  return flag;
+});
+
+const MARKDOWN_FILE = path.join(DATA_DIR, 'markdown.md');
+
+ipcMain.handle('markdown:load', async () => {
+  try {
+    return await fs.readFile(MARKDOWN_FILE, 'utf-8');
+  } catch {
+    return null;
+  }
+});
+
+ipcMain.handle('markdown:save', async (_, content) => {
+  await ensureDataDir();
+  await fs.writeFile(MARKDOWN_FILE, content, 'utf-8');
 });

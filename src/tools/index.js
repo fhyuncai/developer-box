@@ -1,0 +1,25 @@
+import { lazy } from 'react';
+
+export const TOOL_COMPONENTS = {
+  base64: lazy(() => import('./Base64Tool')),
+  'url-codec': lazy(() => import('./UrlTool')),
+  unicode: lazy(() => import('./UnicodeTool')),
+  radix: lazy(() => import('./RadixTool')),
+  'rgb-hex': lazy(() => import('./RgbHexTool')),
+  hash: lazy(() => import('./HashTool')),
+  aes: lazy(() => import('./AesTool')),
+  jwt: lazy(() => import('./JwtTool')),
+  json: lazy(() => import('./JsonTool')),
+  sql: lazy(() => import('./SqlTool')),
+  css: lazy(() => import('./CssTool')),
+  markdown: lazy(() => import('./MarkdownTool')),
+  diff: lazy(() => import('./DiffTool')),
+  regex: lazy(() => import('./RegexTool')),
+  'word-count': lazy(() => import('./WordCountTool')),
+  'case-convert': lazy(() => import('./CaseTool')),
+  uuid: lazy(() => import('./UuidTool')),
+  qrcode: lazy(() => import('./QrcodeTool')),
+  'image-base64': lazy(() => import('./ImageBase64Tool')),
+  timestamp: lazy(() => import('./TimestampTool')),
+  cron: lazy(() => import('./CronTool')),
+};

@@ -25,13 +25,16 @@ pnpm install
 pnpm dev
 ```
 
-## 构建安装包
+## 构建发布文件
 
 ```bash
 pnpm build
 ```
 
 输出目录为 `release/`。
+
+- macOS：输出 zip（内含 `Developer Box.app`，解压后可直接运行）
+- Windows：输出单文件 portable exe（可直接双击运行，无安装向导）
 
 ## 数据文件
 
