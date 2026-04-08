@@ -54,7 +54,7 @@ body,
 /* safe zone for macOS traffic-light buttons (x:14, 3 buttons × ~14px wide each + gaps ≈ 76px) */
 .titlebar-traffic-zone {
   flex-shrink: 0;
-  width: 76px;
+  width: 52px;
 }
 
 .titlebar-title {
@@ -66,15 +66,49 @@ body,
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  padding-left: 24px;
 }
 
 .titlebar-actions {
   display: flex;
   align-items: center;
   gap: 2px;
-  padding-right: 10px;
-  /* buttons must not be draggable */
   -webkit-app-region: no-drag;
+}
+
+/* Windows window control buttons */
+.titlebar-wincontrols {
+  display: flex;
+  align-items: stretch;
+  margin-left: 6px;
+  -webkit-app-region: no-drag;
+}
+
+.titlebar-wc {
+  width: 46px;
+  height: 44px;
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: inherit;
+  font-size: 12px;
+  opacity: 0.65;
+  transition: background 0.12s, opacity 0.12s;
+  padding: 0;
+
+  &:hover {
+    opacity: 1;
+    background: rgba(128, 128, 128, 0.15);
+  }
+
+  &.titlebar-wc--close:hover {
+    background: #e81123;
+    color: #fff;
+    opacity: 1;
+  }
 }
 
 .titlebar-btn {
@@ -211,7 +245,7 @@ textarea,
 
 .tool-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, calc(25% - 9px));
+  grid-template-columns: repeat(4, 1fr);
   gap: 12px;
 }
 
@@ -258,9 +292,65 @@ textarea,
   opacity: 0.6;
 }
 
+/* ──────────────── Todo List Page ──────────────── */
+.todo-overview-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.todo-list-empty {
+  min-height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 16px;
+}
+
+.todo-list-card-grid {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.todo-list-card-wrap {
+  position: relative;
+}
+
+.todo-create-btn {
+  border-radius: 100px !important;
+  transition: none !important;
+}
+
+.todo-list-card {
+  min-height: 110px;
+}
+
+.todo-list-title {
+  flex: 1;
+  margin-right: 8px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
+}
+
+.todo-task-list {
+  margin-top: 4px;
+}
+
+.todo-detail-header {
+  margin-bottom: 4px;
+}
+
 @media (max-width: 900px) {
   .page-wrap {
     padding: 8px 14px 14px;
+  }
+
+  .todo-overview-stats {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 

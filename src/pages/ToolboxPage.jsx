@@ -6,6 +6,7 @@ import BreadcrumbNav from '../components/BreadcrumbNav';
 export default function ToolboxPage({ tools, onBack, onBackHome, onOpenTool }) {
   const [query, setQuery] = useState('');
   const searchRef = useRef(null);
+  const isMac = window.developerBox.getPlatform() === 'darwin';
 
   // Cmd/Ctrl+F focuses search box
   useEffect(() => {
@@ -63,7 +64,7 @@ export default function ToolboxPage({ tools, onBack, onBackHome, onOpenTool }) {
             ref={searchRef}
             className="toolbox-search"
             prefix={<SearchOutlined style={{ opacity: 0.4 }} />}
-            placeholder="搜索工具… (⌘F)"
+            placeholder={`搜索工具… (${isMac ? '⌘F' : 'Ctrl+F'})`}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.key === 'Escape' && setQuery('')}

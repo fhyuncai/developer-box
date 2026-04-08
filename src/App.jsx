@@ -1,21 +1,26 @@
 import { useEffect, useMemo, useState } from 'react';
 import { App as AntdApp, ConfigProvider, Flex, Modal, Radio, Typography, Divider, theme } from 'antd';
+import zhCN from 'antd/locale/zh_CN';
+import dayjs from 'dayjs';
+import 'dayjs/locale/zh-cn';
 import HomePage from './pages/HomePage';
 import ToolboxPage from './pages/ToolboxPage';
-import TodoPage from './pages/TodoPage';
+import TodoListsPage from './pages/TodoListsPage';
+import CheckinPage from './pages/CheckinPage';
 import ToolPage from './pages/ToolPage';
 import TitleBar from './components/TitleBar';
 
 const { defaultAlgorithm, darkAlgorithm } = theme;
 
+dayjs.locale('zh-cn');
+
 function getEffectiveTheme(themeMode, systemTheme) {
   return themeMode === 'system' ? systemTheme : themeMode;
 }
 
-const DEFAULT_PINNED = ['toolCount', 'doneCount'];
-const DEFAULT_DASHBOARD_ORDER = ['toolCount', 'doneCount'];
+const DEFAULT_PINNED = ['doneCount'];
+const DEFAULT_DASHBOARD_ORDER = ['doneCount'];
 const TOOLS = [
-  { key: 'todo', title: 'Todo List', description: '管理日常任务与进度', group: '任务管理' },
   { key: 'base64', title: 'Base64 编解码', description: 'Base64 编码与解码，支持 Unicode', group: '编码 / 解码' },
   { key: 'url-codec', title: 'URL 编解码', description: 'URL percent 编码与解码', group: '编码 / 解码' },
   { key: 'unicode', title: 'Unicode 编码转换', description: '文本与 \\uXXXX 转义互转', group: '编码 / 解码' },
@@ -39,17 +44,44 @@ const TOOLS = [
   { key: 'cron', title: 'Crontab 表达式', description: '解析描述 + 预览下次执行时间', group: '时间 / 日期' },
 ];
 const DASHBOARD_ITEMS = [
-  { key: 'toolCount', label: '工具模块' },
-  { key: 'doneCount', label: '已完成任务' }
+  { key: 'doneCount', label: '已完成任务' },
 ];
+
+const DEFAULT_CHECKINS = [
+  { id: 'preset-water', title: '喝水', enabled: true, weekdays: [1, 2, 3, 4, 5], times: ['10:30', '11:30', '13:30', '15:30', '17:00'], records: [], createdAt: Date.now(), preset: true },
+  { id: 'preset-stretch', title: '拉伸', enabled: true, weekdays: [1, 2, 3, 4, 5], times: ['11:00', '16:00'], records: [], createdAt: Date.now(), preset: true },
+  { id: 'preset-eyes', title: '护眼休息', enabled: true, weekdays: [1, 2, 3, 4, 5], times: ['10:00', '14:00', '16:30'], records: [], createdAt: Date.now(), preset: true },
+  { id: 'preset-walk', title: '散步', enabled: false, weekdays: [1, 2, 3, 4, 5], times: ['18:00'], records: [], createdAt: Date.now(), preset: true },
+];
+
+function normalizeCheckins(list) {
+  if (!Array.isArray(list) || list.length === 0) return DEFAULT_CHECKINS;
+  return list.map((item) => ({
+    id: item.id ?? Date.now().toString(36),
+    title: item.title ?? '未命名打卡',
+    enabled: item.enabled !== false,
+    weekdays: Array.isArray(item.weekdays) ? item.weekdays : [],
+    times: Array.isArray(item.times) ? item.times : [],
+    records: Array.isArray(item.records) ? item.records : [],
+    createdAt: item.createdAt ?? Date.now(),
+    preset: !!item.preset,
+  }));
+}
+
+function migrateOldTodos(loaded) {
+  if (!Array.isArray(loaded) || loaded.length === 0) return [];
+  if (loaded[0]?.items !== undefined) return loaded;
+  return [{ id: 'migrated-default', title: '我的 Todo', items: loaded, startDate: null, dueDate: null, createdAt: Date.now() }];
+}
 
 export default function App() {
   const [themeMode, setThemeMode] = useState('system');
   const [systemTheme, setSystemTheme] = useState('light');
-  const [todos, setTodos] = useState([]);
+  const [todoLists, setTodoLists] = useState([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [pinnedBoards, setPinnedBoards] = useState(DEFAULT_PINNED);
   const [dashboardOrder, setDashboardOrder] = useState(DEFAULT_DASHBOARD_ORDER);
+  const [checkins, setCheckins] = useState(DEFAULT_CHECKINS);
   const [pageStack, setPageStack] = useState(['home']);
 
   useEffect(() => {
@@ -71,7 +103,8 @@ export default function App() {
       setThemeMode(settings?.themeMode ?? 'system');
       setPinnedBoards(Array.isArray(settings?.pinnedBoards) ? settings.pinnedBoards : DEFAULT_PINNED);
       setDashboardOrder(Array.isArray(settings?.dashboardOrder) ? settings.dashboardOrder : DEFAULT_DASHBOARD_ORDER);
-      setTodos(Array.isArray(list) ? list : []);
+      setCheckins(normalizeCheckins(settings?.checkins));
+      setTodoLists(migrateOldTodos(Array.isArray(list) ? list : []));
       setSystemTheme(sysTheme);
 
       unsubscribeTheme = window.developerBox.onSystemThemeChange((value) => {
@@ -104,19 +137,21 @@ export default function App() {
       token: {
         colorPrimary: '#1677ff',
         borderRadius: 10,
-        fontFamily: 'PingFang SC, Hiragino Sans GB, Microsoft YaHei, sans-serif'
+        fontFamily: 'PingFang SC, Hiragino Sans GB, Microsoft YaHei, sans-serif',
+        ...(effectiveTheme !== 'dark' && { colorTextDescription: 'rgba(0,0,0,0.60)' }),
       }
     }),
     [effectiveTheme]
   );
 
-  const doneCount = todos.filter((item) => item.done).length;
+  const doneCount = todoLists.reduce((s, l) => s + l.items.filter((i) => i.done).length, 0);
 
-  const saveMergedSettings = async (nextThemeMode, nextPinnedBoards, nextDashboardOrder) => {
+  const saveMergedSettings = async (nextThemeMode, nextPinnedBoards, nextDashboardOrder, nextCheckins = checkins) => {
     await window.developerBox.saveSettings({
       themeMode: nextThemeMode,
       pinnedBoards: nextPinnedBoards,
-      dashboardOrder: nextDashboardOrder
+      dashboardOrder: nextDashboardOrder,
+      checkins: nextCheckins,
     });
   };
 
@@ -132,9 +167,14 @@ export default function App() {
     await saveMergedSettings(themeMode, nextPinnedBoards, nextDashboardOrder);
   };
 
-  const handleTodosChange = async (next) => {
-    setTodos(next);
+  const handleTodoListsChange = async (next) => {
+    setTodoLists(next);
     await window.developerBox.saveTodos(next);
+  };
+
+  const handleCheckinsChange = async (next) => {
+    setCheckins(next);
+    await saveMergedSettings(themeMode, pinnedBoards, dashboardOrder, next);
   };
 
   const currentPage = pageStack[pageStack.length - 1] || 'home';
@@ -162,7 +202,7 @@ export default function App() {
   };
 
   return (
-    <ConfigProvider theme={antdTheme}>
+    <ConfigProvider theme={antdTheme} locale={zhCN}>
       <AntdApp>
         <div className="app-shell">
           <TitleBar onOpenSettings={() => setSettingsOpen(true)} />
@@ -173,7 +213,6 @@ export default function App() {
               dashboardOrder={dashboardOrder}
               dashboardItems={DASHBOARD_ITEMS}
               doneCount={doneCount}
-              toolCount={TOOLS.length}
               onDashboardConfigChange={handleDashboardConfigChange}
               onOpenPage={(pageKey) => goToPage(pageKey)}
             />
@@ -188,17 +227,25 @@ export default function App() {
             />
           )}
 
-          {currentPage === 'todo' && (
-            <TodoPage
-              todos={todos}
-              onTodosChange={handleTodosChange}
+          {currentPage === 'todo-list' && (
+            <TodoListsPage
+              todoLists={todoLists}
+              onTodoListsChange={handleTodoListsChange}
               onBack={goBack}
-              onBackToolbox={goToolbox}
               onBackHome={goHome}
             />
           )}
 
-          {!['home', 'toolbox', 'todo'].includes(currentPage) && (
+          {currentPage === 'checkin' && (
+            <CheckinPage
+              checkins={checkins}
+              onCheckinsChange={handleCheckinsChange}
+              onBack={goBack}
+              onBackHome={goHome}
+            />
+          )}
+
+          {!['home', 'toolbox', 'todo-list', 'checkin'].includes(currentPage) && (
             <ToolPage
               toolKey={currentPage}
               toolTitle={TOOLS.find((t) => t.key === currentPage)?.title ?? ''}

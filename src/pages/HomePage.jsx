@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Button, Card, Statistic, Tooltip, Typography, Space } from 'antd';
-import { CheckCircleTwoTone, CheckOutlined, EditOutlined, MinusCircleFilled, PlusCircleFilled, RightOutlined, ToolTwoTone } from '@ant-design/icons';
+import { CheckCircleTwoTone, CheckOutlined, EditOutlined, MinusCircleFilled, PlusCircleFilled, RightOutlined } from '@ant-design/icons';
 import './HomePage.scss';
 
 const HOME_MENU_ITEMS = [
@@ -10,6 +10,16 @@ const HOME_MENU_ITEMS = [
     description: '开发者常用工具'
   },
   {
+    key: 'todo-list',
+    title: 'Todo List',
+    description: '多项目任务清单管理'
+  },
+  {
+    key: 'checkin',
+    title: '健康打卡',
+    description: '管理健康打卡类型、时间与启用状态'
+  },
+  {
     key: 'workspace',
     title: '工作区',
     description: '统一入口，集中管理你的开发流程'
@@ -17,8 +27,7 @@ const HOME_MENU_ITEMS = [
 ];
 
 const DASHBOARD_CARD_MAP = {
-  toolCount: { title: '工具模块', renderValue: ({ toolCount }) => toolCount, prefix: <ToolTwoTone /> },
-  doneCount: { title: '已完成任务', renderValue: ({ doneCount }) => doneCount, prefix: <CheckCircleTwoTone twoToneColor="#52c41a" /> }
+  doneCount: { title: '已完成任务', renderValue: ({ doneCount }) => doneCount, prefix: <CheckCircleTwoTone twoToneColor="#52c41a" /> },
 };
 
 export default function HomePage({
@@ -26,7 +35,6 @@ export default function HomePage({
   dashboardOrder,
   dashboardItems,
   doneCount,
-  toolCount,
   onDashboardConfigChange,
   onOpenPage
 }) {
@@ -124,7 +132,7 @@ export default function HomePage({
                       onDragEnd={editMode ? () => { setDraggingKey(null); setDragOverKey(null); } : undefined}
                     >
                       <Card size="small" className="tool-entry dashboard-tile">
-                        <Statistic title={card.title} value={card.renderValue({ toolCount, doneCount })} prefix={card.prefix} styles={{ prefix: { paddingRight: 10 } }} />
+                        <Statistic title={card.title} value={card.renderValue({ doneCount })} prefix={card.prefix} styles={{ prefix: { paddingRight: 10 } }} />
                       </Card>
                       {editMode && (
                         <button className="dashboard-badge remove" type="button" onClick={() => handleRemove(key)} aria-label={`隐藏 ${card.title}`}>
@@ -157,7 +165,7 @@ export default function HomePage({
                     return (
                       <div key={key} className="dashboard-card-wrap">
                         <Card size="small" className="tool-entry dashboard-tile hidden-tile">
-                          <Statistic title={card.title} value={card.renderValue({ toolCount, doneCount })} prefix={card.prefix} />
+                          <Statistic title={card.title} value={card.renderValue({ doneCount })} prefix={card.prefix} />
                         </Card>
                         <button className="dashboard-badge add" type="button" onClick={() => handleAdd(key)} aria-label={`显示 ${card.title}`}>
                           <PlusCircleFilled />

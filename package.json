@@ -1,6 +1,6 @@
 {
   "name": "developer-box",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "description": "Developer toolbox desktop app for macOS and Windows",
   "packageManager": "pnpm@10.20.0",
   "type": "module",
@@ -42,7 +42,10 @@
         "zip"
       ],
       "category": "public.app-category.developer-tools",
-      "electronLanguages": ["zh-CN", "en"],
+      "electronLanguages": [
+        "zh-CN",
+        "en"
+      ],
       "icon": "assets/icons/AppIcon.icns"
     },
     "win": {
@@ -57,7 +60,9 @@
       "icon": "assets/icons/icon.ico"
     }
   },
-  "dependencies": {},
+  "dependencies": {
+    "dayjs": "^1.11.20"
+  },
   "devDependencies": {
     "@ant-design/icons": "^6.1.1",
     "@types/node": "^18.19.123",

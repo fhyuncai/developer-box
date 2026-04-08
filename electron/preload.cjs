@@ -1,6 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('developerBox', {
+  getPlatform: () => process.platform,
   getStoragePath: () => ipcRenderer.invoke('app:get-storage-path'),
   getSystemTheme: () => ipcRenderer.invoke('app:get-system-theme'),
   getSettings: () => ipcRenderer.invoke('settings:get'),
@@ -20,5 +21,14 @@ contextBridge.exposeInMainWorld('developerBox', {
   getAlwaysOnTop: () => ipcRenderer.invoke('window:get-always-on-top'),
   setAlwaysOnTop: (flag) => ipcRenderer.invoke('window:set-always-on-top', flag),
   loadMarkdown: () => ipcRenderer.invoke('markdown:load'),
-  saveMarkdown: (content) => ipcRenderer.invoke('markdown:save', content)
+  saveMarkdown: (content) => ipcRenderer.invoke('markdown:save', content),
+  minimizeWindow: () => ipcRenderer.invoke('window:minimize'),
+  toggleMaximize: () => ipcRenderer.invoke('window:toggle-maximize'),
+  closeWindow: () => ipcRenderer.invoke('window:close'),
+  isMaximized: () => ipcRenderer.invoke('window:is-maximized'),
+  onMaximizeChanged: (callback) => {
+    const listener = (_, value) => callback(value);
+    ipcRenderer.on('window-maximize-changed', listener);
+    return () => ipcRenderer.removeListener('window-maximize-changed', listener);
+  },
 });

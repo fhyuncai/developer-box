@@ -1,12 +1,21 @@
 import { useEffect, useState } from 'react';
 import { Button, Tooltip } from 'antd';
-import { PushpinFilled, PushpinOutlined, SettingOutlined } from '@ant-design/icons';
+import { PushpinFilled, PushpinOutlined, SettingOutlined, MinusOutlined, BorderOutlined, CloseOutlined } from '@ant-design/icons';
 
 export default function TitleBar({ onOpenSettings }) {
   const [pinned, setPinned] = useState(false);
+  const [isMac, setIsMac] = useState(true);
+  const [isMaximized, setIsMaximized] = useState(false);
 
   useEffect(() => {
     window.developerBox.getAlwaysOnTop().then(setPinned);
+    const platform = window.developerBox.getPlatform();
+    setIsMac(platform === 'darwin');
+    if (platform !== 'darwin') {
+      window.developerBox.isMaximized().then(setIsMaximized);
+      const unsub = window.developerBox.onMaximizeChanged(setIsMaximized);
+      return unsub;
+    }
   }, []);
 
   const togglePin = async () => {
@@ -17,8 +26,7 @@ export default function TitleBar({ onOpenSettings }) {
 
   return (
     <div className="titlebar">
-      {/* traffic-light safe zone — macOS places buttons at x:14 y:14 */}
-      <div className="titlebar-traffic-zone" />
+      {isMac && <div className="titlebar-traffic-zone" />}
 
       <span className="titlebar-title">Developer Box</span>
 
@@ -41,6 +49,31 @@ export default function TitleBar({ onOpenSettings }) {
             onClick={togglePin}
           />
         </Tooltip>
+        {!isMac && (
+          <div className="titlebar-wincontrols">
+            <button
+              className="titlebar-wc titlebar-wc--min"
+              onClick={() => window.developerBox.minimizeWindow()}
+              title="最小化"
+            >
+              <MinusOutlined />
+            </button>
+            <button
+              className="titlebar-wc titlebar-wc--max"
+              onClick={() => window.developerBox.toggleMaximize()}
+              title={isMaximized ? '向下还原' : '最大化'}
+            >
+              <BorderOutlined />
+            </button>
+            <button
+              className="titlebar-wc titlebar-wc--close"
+              onClick={() => window.developerBox.closeWindow()}
+              title="关闭"
+            >
+              <CloseOutlined />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

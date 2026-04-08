@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Menu, nativeTheme } = require('electron');
+﻿const { app, BrowserWindow, ipcMain, Menu, nativeTheme } = require('electron');
 const path = require('path');
 const os = require('os');
 const fs = require('fs/promises');
@@ -40,6 +40,11 @@ function setupMenu() {
   const isDev = !!process.env.VITE_DEV_SERVER_URL;
   const isMac = process.platform === 'darwin';
 
+  if (!isMac) {
+    Menu.setApplicationMenu(null);
+    return;
+  }
+
   const macAppMenu = {
     label: app.name,
     submenu: [
@@ -73,7 +78,7 @@ function setupMenu() {
       { role: 'cut', label: '剪切' },
       { role: 'copy', label: '复制' },
       { role: 'paste', label: '粘贴' },
-      ...(isMac ? [{ role: 'pasteAndMatchStyle', label: '粘贴并匹配格式' }] : []),
+      { role: 'pasteAndMatchStyle', label: '粘贴并匹配格式' },
       { role: 'delete', label: '删除' },
       { role: 'selectAll', label: '全选' }
     ]
@@ -99,14 +104,13 @@ function setupMenu() {
     submenu: [
       { role: 'minimize', label: '最小化' },
       { role: 'zoom', label: '缩放' },
-      ...(isMac
-        ? [{ type: 'separator' }, { role: 'front', label: '全部置于顶层' }]
-        : [{ role: 'close', label: '关闭' }])
+      { type: 'separator' },
+      { role: 'front', label: '全部置于顶层' }
     ]
   };
 
   const template = [
-    ...(isMac ? [macAppMenu] : []),
+    macAppMenu,
     customMenu,
     editMenu,
     ...(isDev ? [viewMenu, windowMenu] : [])
@@ -116,6 +120,7 @@ function setupMenu() {
 }
 
 function createWindow() {
+  const isMac = process.platform === 'darwin';
   const window = new BrowserWindow({
     width: 980,
     height: 640,
@@ -123,8 +128,8 @@ function createWindow() {
     minHeight: 640,
     title: 'Developer Box',
     show: false,
-    titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 14, y: 14 },
+    titleBarStyle: isMac ? 'hiddenInset' : 'hidden',
+    ...(isMac ? { trafficLightPosition: { x: 14, y: 14 } } : {}),
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#141414' : '#ffffff',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -137,6 +142,10 @@ function createWindow() {
     window.show();
   });
 
+  if (!isMac) {
+    window.on('maximize', () => window.webContents.send('window-maximize-changed', true));
+    window.on('unmaximize', () => window.webContents.send('window-maximize-changed', false));
+  }
 
   const devServerUrl = process.env.VITE_DEV_SERVER_URL;
   if (devServerUrl) {
@@ -197,6 +206,29 @@ ipcMain.handle('window:set-always-on-top', (_, flag) => {
   const win = BrowserWindow.getFocusedWindow();
   if (win) win.setAlwaysOnTop(flag);
   return flag;
+});
+
+ipcMain.handle('window:minimize', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win) win.minimize();
+});
+
+ipcMain.handle('window:toggle-maximize', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win) {
+    if (win.isMaximized()) win.unmaximize();
+    else win.maximize();
+  }
+});
+
+ipcMain.handle('window:close', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win) win.close();
+});
+
+ipcMain.handle('window:is-maximized', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  return win ? win.isMaximized() : false;
 });
 
 const MARKDOWN_FILE = path.join(DATA_DIR, 'markdown.md');
