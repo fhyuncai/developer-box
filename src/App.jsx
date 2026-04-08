@@ -21,7 +21,7 @@ const TOOLS = [
   { key: 'unicode', title: 'Unicode 编码转换', description: '文本与 \\uXXXX 转义互转', group: '编码 / 解码' },
   { key: 'radix', title: '进制转换', description: '二 / 八 / 十 / 十六进制互转', group: '进制 / 颜色' },
   { key: 'rgb-hex', title: 'RGB ↔ HEX', description: 'RGB 与 HEX 颜色格式互转', group: '进制 / 颜色' },
-  { key: 'hash', title: 'MD5 / SHA 哈希', description: 'MD5、SHA-1、SHA-256、SHA-512', group: '加密 / 安全' },
+  { key: 'hash', title: 'Hash 哈希计算', description: 'MD5/SHA1/SHA224/SHA256/SHA384/SHA512/SHA3-256/RIPEMD-160', group: '加密 / 安全' },
   { key: 'aes', title: 'AES 加解密', description: 'AES 对称加密与解密', group: '加密 / 安全' },
   { key: 'jwt', title: 'JWT 解析', description: '解析 Header、Payload，检查过期', group: '加密 / 安全' },
   { key: 'json', title: 'JSON 格式化 / 压缩', description: 'JSON 美化与压缩', group: '格式化' },
@@ -36,7 +36,7 @@ const TOOLS = [
   { key: 'qrcode', title: '二维码生成', description: '文本或链接生成二维码并可下载', group: '生成工具' },
   { key: 'image-base64', title: '图片 Base64 转换', description: '图片与 Base64 数据互转预览', group: '生成工具' },
   { key: 'timestamp', title: '时间戳转换', description: 'Unix 时间戳与日期时间互转', group: '时间 / 日期' },
-  { key: 'cron', title: 'Cron 表达式', description: '解析描述 + 预览下次执行时间', group: '时间 / 日期' },
+  { key: 'cron', title: 'Crontab 表达式', description: '解析描述 + 预览下次执行时间', group: '时间 / 日期' },
 ];
 const DASHBOARD_ITEMS = [
   { key: 'toolCount', label: '工具模块' },

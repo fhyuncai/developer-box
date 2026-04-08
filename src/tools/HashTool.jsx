@@ -6,14 +6,14 @@ import { CopyOutlined } from '@ant-design/icons';
 const { TextArea } = Input;
 
 const ALGOS = [
-  { key: 'MD5',       label: 'MD5',        fn: (t) => CryptoJS.MD5(t).toString() },
-  { key: 'SHA1',      label: 'SHA-1',      fn: (t) => CryptoJS.SHA1(t).toString() },
-  { key: 'SHA224',    label: 'SHA-224',    fn: (t) => CryptoJS.SHA224(t).toString() },
-  { key: 'SHA256',    label: 'SHA-256',    fn: (t) => CryptoJS.SHA256(t).toString() },
-  { key: 'SHA384',    label: 'SHA-384',    fn: (t) => CryptoJS.SHA384(t).toString() },
-  { key: 'SHA512',    label: 'SHA-512',    fn: (t) => CryptoJS.SHA512(t).toString() },
-  { key: 'SHA3',      label: 'SHA3-256',   fn: (t) => CryptoJS.SHA3(t, { outputLength: 256 }).toString() },
-  { key: 'RIPEMD160', label: 'RIPEMD-160', fn: (t) => CryptoJS.RIPEMD160(t).toString() },
+  { key: 'MD5',       label: 'MD5',        fn: (t) => t ? CryptoJS.MD5(t).toString() : '' },
+  { key: 'SHA1',      label: 'SHA-1',      fn: (t) => t ? CryptoJS.SHA1(t).toString() : '' },
+  { key: 'SHA224',    label: 'SHA-224',    fn: (t) => t ? CryptoJS.SHA224(t).toString() : '' },
+  { key: 'SHA256',    label: 'SHA-256',    fn: (t) => t ? CryptoJS.SHA256(t).toString() : '' },
+  { key: 'SHA384',    label: 'SHA-384',    fn: (t) => t ? CryptoJS.SHA384(t).toString() : '' },
+  { key: 'SHA512',    label: 'SHA-512',    fn: (t) => t ? CryptoJS.SHA512(t).toString() : '' },
+  { key: 'SHA3',      label: 'SHA3-256',   fn: (t) => t ? CryptoJS.SHA3(t, { outputLength: 256 }).toString() : '' },
+  { key: 'RIPEMD160', label: 'RIPEMD-160', fn: (t) => t ? CryptoJS.RIPEMD160(t).toString() : '' },
 ];
 
 function copyText(text) {
@@ -24,7 +24,7 @@ export default function HashTool() {
   const [input, setInput] = useState('');
 
   const hashes = useMemo(() => {
-    if (!input) return [];
+    // if (!input) return [];
     return ALGOS.map(({ key, label, fn }) => ({ key, label, value: fn(input) }));
   }, [input]);
 

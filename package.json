@@ -42,7 +42,8 @@
         "zip"
       ],
       "category": "public.app-category.developer-tools",
-      "electronLanguages": ["zh-CN", "en"]
+      "electronLanguages": ["zh-CN", "en"],
+      "icon": "assets/icons/AppIcon.icns"
     },
     "win": {
       "target": [
@@ -52,7 +53,8 @@
             "x64"
           ]
         }
-      ]
+      ],
+      "icon": "assets/icons/icon.ico"
     }
   },
   "dependencies": {},
