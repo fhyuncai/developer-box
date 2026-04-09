@@ -31,4 +31,10 @@ contextBridge.exposeInMainWorld('developerBox', {
     ipcRenderer.on('window-maximize-changed', listener);
     return () => ipcRenderer.removeListener('window-maximize-changed', listener);
   },
+  onOpenCheckinFromNotification: (callback) => {
+    const listener = (_, payload) => callback(payload);
+    ipcRenderer.on('notification-open-checkin', listener);
+    return () => ipcRenderer.removeListener('notification-open-checkin', listener);
+  },
+  updateCheckins: (checkins) => ipcRenderer.invoke('checkins:update', checkins),
 });

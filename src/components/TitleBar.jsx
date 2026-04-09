@@ -75,6 +75,8 @@ export default function TitleBar({ onOpenSettings }) {
           </div>
         )}
       </div>
+
+      {isMac && <div className="titlebar-right-zone" />}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-﻿const { app, BrowserWindow, ipcMain, Menu, nativeTheme } = require('electron');
+﻿const { app, BrowserWindow, ipcMain, Menu, nativeTheme, Notification } = require('electron');
 const path = require('path');
 const os = require('os');
 const fs = require('fs/promises');
@@ -28,6 +28,80 @@ async function writeJson(filePath, data) {
 function getSystemTheme() {
   return nativeTheme.shouldUseDarkColors ? 'dark' : 'light';
 }
+
+// ---- 打卡通知调度器 ----
+let checkinData = [];
+const notifiedSlots = new Set();
+let checkinSchedulerTimer = null;
+
+function openCheckinPageFromNotification(checkinId) {
+  const sendToWindow = (win) => {
+    if (!win || win.isDestroyed()) return;
+    if (win.isMinimized()) win.restore();
+    win.show();
+    win.focus();
+    win.webContents.send('notification-open-checkin', { checkinId: checkinId || null });
+  };
+
+  let win = BrowserWindow.getAllWindows()[0];
+  if (!win) {
+    createWindow();
+    win = BrowserWindow.getAllWindows()[0];
+    if (!win) return;
+    win.webContents.once('did-finish-load', () => sendToWindow(win));
+    return;
+  }
+
+  sendToWindow(win);
+}
+
+function checkAndNotifyCheckins() {
+  if (!Notification.isSupported()) return;
+  if (!Array.isArray(checkinData) || checkinData.length === 0) return;
+
+  const now = new Date();
+  const currentDay = now.getDay();
+  const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+  for (const checkin of checkinData) {
+    if (!checkin.enabled) continue;
+    if (!Array.isArray(checkin.weekdays) || !checkin.weekdays.includes(currentDay)) continue;
+    if (!Array.isArray(checkin.times) || !checkin.times.includes(currentTime)) continue;
+
+    const slotKey = `${dateStr}-${checkin.id}-${currentTime}`;
+    if (notifiedSlots.has(slotKey)) continue;
+    notifiedSlots.add(slotKey);
+
+    const notification = new Notification({
+      title: '健康打卡提醒',
+      body: `是时候「${checkin.title}」了！`,
+    });
+    notification.on('click', () => openCheckinPageFromNotification(checkin.id));
+    notification.show();
+  }
+
+  // 清理非今日的已通知记录
+  for (const key of notifiedSlots) {
+    if (!key.startsWith(dateStr)) {
+      notifiedSlots.delete(key);
+    }
+  }
+}
+
+function startCheckinScheduler() {
+  if (checkinSchedulerTimer) {
+    clearTimeout(checkinSchedulerTimer);
+    checkinSchedulerTimer = null;
+  }
+  // 对齐到下一整分钟，之后每 60 秒检查一次
+  const msToNextMinute = 60000 - (Date.now() % 60000);
+  checkinSchedulerTimer = setTimeout(() => {
+    checkAndNotifyCheckins();
+    checkinSchedulerTimer = setInterval(checkAndNotifyCheckins, 60000);
+  }, msToNextMinute);
+}
+// ---- 打卡通知调度器结束 ----
 
 function sendOpenSettingsToFocusedWindow() {
   const focused = BrowserWindow.getFocusedWindow();
@@ -160,6 +234,13 @@ app.whenReady().then(async () => {
   setupMenu();
   createWindow();
 
+  // 加载打卡配置并启动通知调度
+  const settings = await readJson(SETTINGS_FILE, {});
+  if (Array.isArray(settings?.checkins)) {
+    checkinData = settings.checkins;
+  }
+  startCheckinScheduler();
+
   nativeTheme.on('updated', () => {
     const value = getSystemTheme();
     for (const win of BrowserWindow.getAllWindows()) {
@@ -244,4 +325,10 @@ ipcMain.handle('markdown:load', async () => {
 ipcMain.handle('markdown:save', async (_, content) => {
   await ensureDataDir();
   await fs.writeFile(MARKDOWN_FILE, content, 'utf-8');
+});
+
+ipcMain.handle('checkins:update', (_, payload) => {
+  if (Array.isArray(payload)) {
+    checkinData = payload;
+  }
 });

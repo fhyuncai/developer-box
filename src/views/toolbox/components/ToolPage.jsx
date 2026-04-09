@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import { Button, Flex, Spin } from 'antd';
 import { ArrowLeftOutlined, HomeOutlined } from '@ant-design/icons';
-import BreadcrumbNav from '../components/BreadcrumbNav';
+import BreadcrumbNav from '../../../components/BreadcrumbNav';
 import { TOOL_COMPONENTS } from '../tools';
 
 export default function ToolPage({ toolKey, toolTitle, onBack, onBackToolbox, onBackHome }) {

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Button, Card, Statistic, Tooltip, Typography, Space } from 'antd';
 import { CheckCircleTwoTone, CheckOutlined, EditOutlined, MinusCircleFilled, PlusCircleFilled, RightOutlined } from '@ant-design/icons';
-import './HomePage.scss';
+import './index.scss';
 
 const HOME_MENU_ITEMS = [
   {

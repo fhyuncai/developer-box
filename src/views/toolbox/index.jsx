@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Card, Flex, Input, Tooltip, Typography } from 'antd';
 import { ArrowLeftOutlined, HomeOutlined, RightOutlined, SearchOutlined } from '@ant-design/icons';
-import BreadcrumbNav from '../components/BreadcrumbNav';
+import BreadcrumbNav from '../../components/BreadcrumbNav';
 
 export default function ToolboxPage({ tools, onBack, onBackHome, onOpenTool }) {
   const [query, setQuery] = useState('');

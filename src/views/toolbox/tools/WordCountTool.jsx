@@ -23,7 +23,7 @@ export default function WordCountTool() {
   return (
     <Flex vertical gap={12}>
       <TextArea
-        rows={10}
+        rows={19}
         value={text}
         onChange={(e) => setText(e.target.value)}
         placeholder="输入或粘贴文本"

@@ -18,8 +18,10 @@ export const TOOL_COMPONENTS = {
   'word-count': lazy(() => import('./WordCountTool')),
   'case-convert': lazy(() => import('./CaseTool')),
   uuid: lazy(() => import('./UuidTool')),
+  token: lazy(() => import('./TokenGeneratorTool')),
   qrcode: lazy(() => import('./QrcodeTool')),
   'image-base64': lazy(() => import('./ImageBase64Tool')),
   timestamp: lazy(() => import('./TimestampTool')),
   cron: lazy(() => import('./CronTool')),
+  subnet: lazy(() => import('./SubnetTool')),
 };

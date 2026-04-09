@@ -1,7 +1,7 @@
 import { Button, Card, Flex } from 'antd';
 import { ArrowLeftOutlined, HomeOutlined } from '@ant-design/icons';
-import TodoList from '../components/TodoList';
-import BreadcrumbNav from '../components/BreadcrumbNav';
+import TodoList from '../../../components/TodoList';
+import BreadcrumbNav from '../../../components/BreadcrumbNav';
 
 export default function TodoPage({ todos, onTodosChange, onBack, onBackToolbox, onBackHome }) {
   return (

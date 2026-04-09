@@ -3,15 +3,11 @@ import {
   Button,
   Card,
   Flex,
-  Input,
   List,
-  Modal,
   Popconfirm,
-  Select,
-  Space,
   Switch,
+  Space,
   Tag,
-  TimePicker,
   Typography,
 } from 'antd';
 import {
@@ -22,29 +18,9 @@ import {
   HistoryOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import BreadcrumbNav from '../components/BreadcrumbNav';
-
-const CHECKIN_TITLE_MAX_LENGTH = 24;
-const WEEKDAY_OPTIONS = [
-  { label: '周一', value: 1 },
-  { label: '周二', value: 2 },
-  { label: '周三', value: 3 },
-  { label: '周四', value: 4 },
-  { label: '周五', value: 5 },
-  { label: '周六', value: 6 },
-  { label: '周日', value: 0 },
-];
-
-const PRESET_TYPES = ['喝水', '拉伸', '护眼休息', '散步', '冥想', '服药'];
-
-const PRESET_CONFIGS = {
-  喝水: { weekdays: [1, 2, 3, 4, 5], times: ['10:30', '11:30', '13:30', '15:30', '17:00'] },
-  拉伸: { weekdays: [1, 2, 3, 4, 5], times: ['11:00', '16:00'] },
-  护眼休息: { weekdays: [1, 2, 3, 4, 5], times: ['10:00', '14:00', '16:30'] },
-  散步: { weekdays: [1, 2, 3, 4, 5], times: ['18:00'] },
-  冥想: { weekdays: [1, 2, 3, 4, 5, 6, 0], times: ['22:00'] },
-  服药: { weekdays: [1, 2, 3, 4, 5, 6, 0], times: ['08:00', '20:00'] },
-};
+import BreadcrumbNav from '../../components/BreadcrumbNav';
+import CheckinFormModal from './components/CheckinFormModal';
+import CheckinHistoryModal from './components/CheckinHistoryModal';
 
 function normalizeTimes(times) {
   return [...new Set(times)].sort((a, b) => a.localeCompare(b));
@@ -164,14 +140,9 @@ function getCheckinRuntimeState(checkin, now) {
 
 export default function CheckinPage({ checkins, onCheckinsChange, onBack, onBackHome }) {
   const [now, setNow] = useState(dayjs());
-  const [open, setOpen] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [presetName, setPresetName] = useState(null);
-  const [title, setTitle] = useState('');
-  const [weekdays, setWeekdays] = useState([1, 2, 3, 4, 5]);
-  const [times, setTimes] = useState([]);
-  const [tempTime, setTempTime] = useState(null);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(dayjs()), 30 * 1000);
@@ -183,7 +154,9 @@ export default function CheckinPage({ checkins, onCheckinsChange, onBack, onBack
     const allPastSlots = [];
 
     for (const item of checkins) {
-      const slots = getCheckinSlots(item, now, 14, 7).map((slot) => ({ ...slot, title: item.title, enabled: item.enabled }));
+      const createdDay = dayjs(item.createdAt || now.valueOf()).startOf('day');
+      const beforeDays = Math.max(0, now.startOf('day').diff(createdDay, 'day'));
+      const slots = getCheckinSlots(item, now, beforeDays, 7).map((slot) => ({ ...slot, title: item.title, enabled: item.enabled }));
       allTodaySlots.push(...slots.filter((slot) => slot.enabled && slot.at.isSame(now, 'day')));
       allPastSlots.push(...slots.filter((slot) => slot.at.isBefore(now)));
     }
@@ -196,51 +169,38 @@ export default function CheckinPage({ checkins, onCheckinsChange, onBack, onBack
     const weekStart = now.startOf('day').subtract(6, 'day');
     const completedInWeek = allPastSlots.filter((slot) => slot.checked && (slot.at.isAfter(weekStart) || slot.at.isSame(weekStart))).length;
     const missedAll = allPastSlots.filter((slot) => !slot.checked && (now.isAfter(slot.closeAt) || now.isSame(slot.closeAt)));
-    const missedInWeek = missedAll.filter((slot) => slot.at.isAfter(weekStart) || slot.at.isSame(weekStart)).length;
+    const missedSinceCreated = missedAll.length;
     const recentMissed = missedAll.sort((a, b) => b.at.valueOf() - a.at.valueOf()).slice(0, 6);
 
     return {
       remainingToday,
       nextPending,
       completedInWeek,
-      missedInWeek,
+      missedSinceCreated,
       recentMissed,
     };
   }, [checkins, now]);
 
   const resetForm = () => {
     setEditing(null);
-    setPresetName(null);
-    setTitle('');
-    setWeekdays([1, 2, 3, 4, 5]);
-    setTimes([]);
-    setTempTime(null);
   };
 
   const openCreate = () => {
-    resetForm();
-    setOpen(true);
+    setEditing(null);
+    setFormOpen(true);
   };
 
   const openEdit = (item) => {
     setEditing(item);
-    setPresetName(null);
-    setTitle(item.title);
-    setWeekdays(Array.isArray(item.weekdays) ? item.weekdays : []);
-    setTimes(Array.isArray(item.times) ? item.times : []);
-    setTempTime(null);
-    setOpen(true);
+    setFormOpen(true);
   };
 
-  const upsertCheckin = () => {
-    const nextTitle = title.trim().slice(0, CHECKIN_TITLE_MAX_LENGTH);
-    if (!nextTitle) return;
-
+  const handleFormSubmit = ({ title, weekdays, times, presetName }) => {
     if (editing) {
       onCheckinsChange(
         checkins.map((item) =>
           item.id === editing.id
-            ? { ...item, title: nextTitle, weekdays, times: normalizeTimes(times) }
+            ? { ...item, title, weekdays, times }
             : item
         )
       );
@@ -249,28 +209,23 @@ export default function CheckinPage({ checkins, onCheckinsChange, onBack, onBack
         ...checkins,
         {
           id: Date.now().toString(36),
-          title: nextTitle,
-          enabled: true,
+          title,
+          enabled: false,
           weekdays,
-          times: normalizeTimes(times),
+          times,
           records: [],
           createdAt: Date.now(),
           preset: !!presetName,
         },
       ]);
     }
-
-    setOpen(false);
+    setFormOpen(false);
     resetForm();
   };
 
-  const applyPreset = (name) => {
-    setPresetName(name);
-    const preset = PRESET_CONFIGS[name];
-    if (!preset) return;
-    setTitle(name);
-    setWeekdays(preset.weekdays);
-    setTimes(preset.times);
+  const handleFormClose = () => {
+    setFormOpen(false);
+    resetForm();
   };
 
   const toggleEnabled = (id, enabled) => {
@@ -293,26 +248,14 @@ export default function CheckinPage({ checkins, onCheckinsChange, onBack, onBack
     );
   };
 
-  const addTime = () => {
-    if (!tempTime) return;
-    const value = dayjs(tempTime).format('HH:mm');
-    if (!times.includes(value)) {
-      setTimes((prev) => normalizeTimes([...prev, value]));
-    }
-    setTempTime(null);
-  };
 
   return (
     <section className="content-area checkin-page">
       <Flex justify="space-between" align="center" className="page-nav-row">
-        <BreadcrumbNav items={[{ title: '首页', onClick: onBackHome }, { title: '健康打卡' }]} />
+        <BreadcrumbNav shape="circle" items={[{ title: '首页', onClick: onBackHome }, { title: '健康打卡' }]} />
         <Flex gap={8}>
-          <Button icon={<HistoryOutlined />} onClick={() => setHistoryOpen(true)}>
-            历史概览
-          </Button>
-          <Button type="primary" icon={<PlusOutlined />} className="todo-create-btn" onClick={openCreate}>
-            新建打卡
-          </Button>
+          <Button shape="circle" icon={<HistoryOutlined />} onClick={() => setHistoryOpen(true)} aria-label="历史概览" />
+          <Button shape="circle" type="primary" icon={<PlusOutlined />} onClick={openCreate} aria-label="新建打卡" />
           <Button shape="circle" icon={<ArrowLeftOutlined />} onClick={onBack} aria-label="返回" />
           <Button shape="circle" icon={<HomeOutlined />} onClick={onBackHome} aria-label="返回首页" />
         </Flex>
@@ -396,97 +339,18 @@ export default function CheckinPage({ checkins, onCheckinsChange, onBack, onBack
         }}
       />
 
-      <Modal
-        title={editing ? '编辑打卡类型' : '新建打卡类型'}
-        open={open}
-        onOk={upsertCheckin}
-        onCancel={() => {
-          setOpen(false);
-          resetForm();
-        }}
-        okText={editing ? '保存' : '创建'}
-        cancelText="取消"
-        okButtonProps={{ disabled: !title.trim() }}
-      >
-        <Flex vertical gap={12} style={{ marginTop: 16 }}>
-          {!editing && (
-            <Select
-              placeholder="快速填充预设（可选）"
-              value={presetName}
-              onChange={applyPreset}
-              allowClear
-              options={PRESET_TYPES.map((x) => ({ label: x, value: x }))}
-            />
-          )}
-          <Input
-            placeholder="打卡名称（必填）"
-            value={title}
-            onChange={(e) => setTitle(e.target.value.slice(0, CHECKIN_TITLE_MAX_LENGTH))}
-            maxLength={CHECKIN_TITLE_MAX_LENGTH}
-            showCount
-          />
-          <Select
-            mode="multiple"
-            placeholder="选择星期（可多选）"
-            value={weekdays}
-            onChange={setWeekdays}
-            options={WEEKDAY_OPTIONS}
-          />
+      <CheckinFormModal
+        open={formOpen}
+        editing={editing}
+        onClose={handleFormClose}
+        onSubmit={handleFormSubmit}
+      />
 
-          <div>
-            <Typography.Text type="secondary">打卡时间（可多选）</Typography.Text>
-            <Flex gap={8} style={{ marginTop: 8 }}>
-              <TimePicker
-                value={tempTime}
-                format="HH:mm"
-                minuteStep={5}
-                onChange={(value) => setTempTime(value || null)}
-              />
-              <Button onClick={addTime}>添加时间</Button>
-            </Flex>
-            <Space wrap style={{ marginTop: 8 }}>
-              {times.length === 0 ? (
-                <Tag>未设置时间点</Tag>
-              ) : (
-                times.map((t) => (
-                  <Tag key={t} closable onClose={() => setTimes((prev) => prev.filter((x) => x !== t))}>
-                    {t}
-                  </Tag>
-                ))
-              )}
-            </Space>
-          </div>
-        </Flex>
-      </Modal>
-
-      <Modal
-        title="历史打卡概览"
+      <CheckinHistoryModal
         open={historyOpen}
-        footer={null}
-        onCancel={() => setHistoryOpen(false)}
-      >
-        <Flex vertical gap={10} style={{ marginTop: 8 }}>
-          <Card size="small">
-            <Typography.Text>近 7 天完成：{dashboard.completedInWeek}</Typography.Text>
-            <br />
-            <Typography.Text>近 7 天漏打：{dashboard.missedInWeek}</Typography.Text>
-          </Card>
-          <Typography.Text strong>最近未打卡时间点</Typography.Text>
-          {dashboard.recentMissed.length === 0 ? (
-            <Typography.Text type="secondary">暂无未打卡记录</Typography.Text>
-          ) : (
-            <List
-              size="small"
-              dataSource={dashboard.recentMissed}
-              renderItem={(slot) => (
-                <List.Item>
-                  <Typography.Text>{slot.at.format('MM-DD HH:mm')} · {slot.title}</Typography.Text>
-                </List.Item>
-              )}
-            />
-          )}
-        </Flex>
-      </Modal>
+        onClose={() => setHistoryOpen(false)}
+        dashboard={dashboard}
+      />
     </section>
   );
 }
