@@ -1,11 +1,42 @@
-﻿const { app, BrowserWindow, ipcMain, Menu, nativeTheme, Notification } = require('electron');
+﻿const { app, BrowserWindow, ipcMain, Menu, nativeTheme, Notification, dialog } = require('electron');
 const path = require('path');
 const os = require('os');
 const fs = require('fs/promises');
+const {
+  initializeWorkspaceDatabase,
+  getDatabaseFilePath,
+  listProviders,
+  getProviderById,
+  saveProvider,
+  deleteProvider,
+  listProxies,
+  saveProxy,
+  deleteProxy,
+  createTask,
+  listTasks,
+  getTaskDetail,
+  deleteTask,
+  resetTaskDefinition,
+  getGlobalCommandAllowlist,
+  setGlobalCommandAllowlist,
+} = require('./workspace-db.cjs');
+const {
+  subscribe,
+  refreshProviderRuntime,
+  autoOrchestrateTask,
+  runTask,
+  cancelTask,
+  getWorkspaceOverview,
+  retryTaskAgent,
+  resolveCommandApproval,
+  getPendingCommandApprovals,
+  recoverInterruptedTasks,
+} = require('./workspace-runtime.cjs');
 
 const DATA_DIR = path.join(os.homedir(), '.developer-box');
 const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
 const TODOS_FILE = path.join(DATA_DIR, 'todos.json');
+let unsubscribeWorkspaceRuntime = null;
 
 async function ensureDataDir() {
   await fs.mkdir(DATA_DIR, { recursive: true });
@@ -231,8 +262,16 @@ function createWindow() {
 
 app.whenReady().then(async () => {
   await ensureDataDir();
+  initializeWorkspaceDatabase(DATA_DIR);
   setupMenu();
   createWindow();
+
+  unsubscribeWorkspaceRuntime = subscribe((event) => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      win.webContents.send('workspace-runtime-event', event);
+    }
+  });
+  recoverInterruptedTasks();
 
   // 加载打卡配置并启动通知调度
   const settings = await readJson(SETTINGS_FILE, {});
@@ -261,8 +300,27 @@ app.on('window-all-closed', () => {
   }
 });
 
+app.on('before-quit', () => {
+  if (unsubscribeWorkspaceRuntime) {
+    unsubscribeWorkspaceRuntime();
+    unsubscribeWorkspaceRuntime = null;
+  }
+});
+
 ipcMain.handle('app:get-storage-path', async () => DATA_DIR);
+ipcMain.handle('app:get-workspace-db-path', async () => getDatabaseFilePath());
 ipcMain.handle('app:get-system-theme', async () => getSystemTheme());
+ipcMain.handle('app:choose-directory', async (_, payload = {}) => {
+  const focused = BrowserWindow.getFocusedWindow();
+  const result = await dialog.showOpenDialog(focused || undefined, {
+    title: payload.title || '选择工作目录',
+    properties: ['openDirectory', 'createDirectory'],
+    defaultPath: payload.defaultPath || process.cwd(),
+    buttonLabel: '选择目录',
+  });
+  if (result.canceled || !result.filePaths?.length) return '';
+  return result.filePaths[0];
+});
 ipcMain.handle('settings:get', async () => {
   return readJson(SETTINGS_FILE, { themeMode: 'system' });
 });
@@ -276,6 +334,80 @@ ipcMain.handle('todos:get', async () => {
 ipcMain.handle('todos:set', async (_, payload) => {
   await writeJson(TODOS_FILE, payload);
   return payload;
+});
+
+ipcMain.handle('workspace:get-overview', async () => getWorkspaceOverview());
+ipcMain.handle('workspace:list-providers', async () => listProviders());
+ipcMain.handle('workspace:get-provider', async (_, providerId) => getProviderById(providerId));
+ipcMain.handle('workspace:save-provider', async (_, payload) => saveProvider(payload));
+ipcMain.handle('workspace:delete-provider', async (_, providerId) => deleteProvider(providerId));
+ipcMain.handle('workspace:refresh-provider', async (_, providerId) => refreshProviderRuntime(providerId));
+ipcMain.handle('workspace:list-proxies', async () => listProxies());
+ipcMain.handle('workspace:save-proxy', async (_, payload) => saveProxy(payload));
+ipcMain.handle('workspace:delete-proxy', async (_, proxyId) => deleteProxy(proxyId));
+ipcMain.handle('workspace:create-task', async (_, payload) => createTask(payload));
+ipcMain.handle('workspace:auto-orchestrate-task', async (_, payload) => {
+  try {
+    const data = await autoOrchestrateTask(payload);
+    return { ok: true, data };
+  } catch (error) {
+    // Electron IPC does not serialize custom Error properties, so return structured result
+    return { ok: false, message: String(error?.message || '自动编排失败'), raw: String(error?.raw || '') };
+  }
+});
+ipcMain.handle('workspace:list-tasks', async () => listTasks());
+ipcMain.handle('workspace:get-task-detail', async (_, taskId) => getTaskDetail(taskId));
+ipcMain.handle('workspace:start-task', async (_, taskId) => {
+  runTask(taskId).catch((error) => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      win.webContents.send('workspace-runtime-event', {
+        taskId,
+        type: 'task-error',
+        status: 'failed',
+        message: error.message,
+        at: new Date().toISOString(),
+      });
+    }
+  });
+  return { started: true };
+});
+ipcMain.handle('workspace:cancel-task', async (_, taskId) => cancelTask(taskId));
+ipcMain.handle('workspace:delete-task', async (_, taskId) => deleteTask(taskId));
+ipcMain.handle('workspace:reset-task', async (_, payload) => {
+  try { return { ok: true, data: resetTaskDefinition(payload.taskId, payload) }; }
+  catch (error) { return { ok: false, message: String(error?.message || '重置任务失败') }; }
+});
+ipcMain.handle('workspace:retry-agent', async (_, { taskId, agentId }) => {
+  try { return await retryTaskAgent(taskId, agentId); }
+  catch (error) { return { ok: false, message: String(error?.message || '重试失败') }; }
+});
+ipcMain.handle('workspace:get-command-allowlist', async () => {
+  try {
+    return { ok: true, data: getGlobalCommandAllowlist() };
+  } catch (error) {
+    return { ok: false, message: String(error?.message || '读取白名单失败') };
+  }
+});
+ipcMain.handle('workspace:set-command-allowlist', async (_, payload) => {
+  try {
+    return { ok: true, data: setGlobalCommandAllowlist(payload?.allowlist || []) };
+  } catch (error) {
+    return { ok: false, message: String(error?.message || '保存白名单失败') };
+  }
+});
+ipcMain.handle('workspace:resolve-command-approval', async (_, payload) => {
+  try {
+    return resolveCommandApproval(payload || {});
+  } catch (error) {
+    return { ok: false, message: String(error?.message || '审批处理失败') };
+  }
+});
+ipcMain.handle('workspace:get-pending-command-approvals', async (_, payload) => {
+  try {
+    return { ok: true, data: getPendingCommandApprovals(payload?.taskId) };
+  } catch (error) {
+    return { ok: false, message: String(error?.message || '读取待审批命令失败') };
+  }
 });
 
 ipcMain.handle('window:get-always-on-top', () => {

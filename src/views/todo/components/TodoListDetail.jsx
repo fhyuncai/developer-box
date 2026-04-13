@@ -116,24 +116,21 @@ export default function TodoListDetail({ list, onBack, onBackHome, onUpdate, onD
                 </Typography.Title>
               )}
               <Flex gap={16} wrap="wrap" align="center">
-                <Flex align="center" gap={4}>
-                  <CalendarOutlined style={{ opacity: 0.45, fontSize: 12 }} />
-                  <RangePicker
-                    size="small"
-                    placeholder={['开始时间', '截止时间']}
-                    value={[
-                      list.startDate ? dayjs(list.startDate) : null,
-                      list.dueDate ? dayjs(list.dueDate) : null,
-                    ]}
-                    onChange={(range) => onUpdate({
-                      startDate: range?.[0] ? range[0].format('YYYY-MM-DD') : null,
-                      dueDate: range?.[1] ? range[1].format('YYYY-MM-DD') : null,
-                    })}
-                    format="YYYY-MM-DD"
-                    allowClear
-                    variant="borderless"
-                  />
-                </Flex>
+                <RangePicker
+                  size="small"
+                  placeholder={['开始时间', '截止时间']}
+                  value={[
+                    list.startDate ? dayjs(list.startDate) : null,
+                    list.dueDate ? dayjs(list.dueDate) : null,
+                  ]}
+                  onChange={(range) => onUpdate({
+                    startDate: range?.[0] ? range[0].format('YYYY-MM-DD') : null,
+                    dueDate: range?.[1] ? range[1].format('YYYY-MM-DD') : null,
+                  })}
+                  format="YYYY-MM-DD"
+                  allowClear
+                  variant="borderless"
+                />
                 {dueSt && <Tag color={dueSt.color}>{dueSt.text}</Tag>}
               </Flex>
             </div>

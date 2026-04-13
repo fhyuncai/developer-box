@@ -7,6 +7,8 @@ import HomePage from './views/home';
 import ToolboxPage from './views/toolbox';
 import TodoListsPage from './views/todo';
 import CheckinPage from './views/checkin';
+import WorkspacePage from './views/workspace';
+import WorkspaceTaskDetailPage from './views/workspace/detail';
 import ToolPage from './views/toolbox/components/ToolPage';
 import TitleBar from './components/TitleBar';
 import SettingsModal from './components/SettingsModal';
@@ -86,6 +88,7 @@ export default function App() {
   const [dashboardOrder, setDashboardOrder] = useState(DEFAULT_DASHBOARD_ORDER);
   const [checkins, setCheckins] = useState(DEFAULT_CHECKINS);
   const [pageStack, setPageStack] = useState(['home']);
+  const [workspaceDetailTaskId, setWorkspaceDetailTaskId] = useState('');
 
   useEffect(() => {
     let mounted = true;
@@ -257,7 +260,26 @@ export default function App() {
             />
           )}
 
-          {!['home', 'toolbox', 'todo-list', 'checkin'].includes(currentPage) && (
+          {currentPage === 'workspace' && (
+            <WorkspacePage
+              onBack={goBack}
+              onBackHome={goHome}
+              onOpenTaskDetail={(taskId) => {
+                setWorkspaceDetailTaskId(taskId);
+                goToPage('workspace-task-detail');
+              }}
+            />
+          )}
+
+          {currentPage === 'workspace-task-detail' && (
+            <WorkspaceTaskDetailPage
+              taskId={workspaceDetailTaskId}
+              onBack={goBack}
+              onBackHome={goHome}
+            />
+          )}
+
+          {!['home', 'toolbox', 'todo-list', 'checkin', 'workspace', 'workspace-task-detail'].includes(currentPage) && (
             <ToolPage
               toolKey={currentPage}
               toolTitle={TOOLS.find((t) => t.key === currentPage)?.title ?? ''}

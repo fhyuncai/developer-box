@@ -1,6 +1,7 @@
 :root {
   color-scheme: light;
   --app-bg: #ffffff;
+  --titlebar-height: 44px;
   --titlebar-bg: rgba(255, 255, 255, 0.85);
   --titlebar-border: rgba(0, 0, 0, 0.08);
 }
@@ -37,7 +38,7 @@ body,
 /* ──────────────── Custom title bar ──────────────── */
 .titlebar {
   flex-shrink: 0;
-  height: 44px;
+  height: var(--titlebar-height);
   display: flex;
   align-items: center;
   background: var(--titlebar-bg);
@@ -48,7 +49,8 @@ body,
   -webkit-app-region: drag;
   user-select: none;
   -webkit-user-select: none;
-  z-index: 100;
+  z-index: 1200;
+  position: relative;
 }
 
 /* safe zone for macOS traffic-light buttons (x:14, 3 buttons × ~14px wide each + gaps ≈ 76px) */
@@ -91,7 +93,7 @@ body,
 
 .titlebar-wc {
   width: 46px;
-  height: 44px;
+  height: var(--titlebar-height);
   border: none;
   background: transparent;
   display: flex;
@@ -144,6 +146,7 @@ body {
 .page-wrap {
   flex: 1;
   min-height: 0; /* required for overflow:auto to work inside a flex column */
+  height: calc(100% - var(--titlebar-height));
   max-width: 1080px;
   margin: 0 auto;
   width: 100%;
@@ -164,6 +167,12 @@ body {
 
   &::-webkit-scrollbar-track {
     background: transparent;
+  }
+}
+
+.ant-modal-root {
+  .ant-modal-wrap {
+    padding-top: calc(var(--titlebar-height) + 8px);
   }
 }
 
@@ -421,10 +430,22 @@ textarea,
 }
 
 /* ──────────────── JSON Tool ──────────────── */
+.json-tool {
+  display: flex;
+  flex-direction: column;
+  /* 预留：标题栏 + 页面内边距 + 面包屑/工具栏 + 安全边距 */
+  height: calc(100dvh - 130px);
+  min-height: 320px;
+}
+
 .json-preview-panel {
   border: 1px solid var(--ant-color-border, #d9d9d9);
   border-radius: 8px;
   padding: 10px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 220px;
 }
 
 .json-preview-body {
@@ -434,18 +455,39 @@ textarea,
   background: rgba(128, 128, 128, 0.04);
   -webkit-user-select: text;
   user-select: text;
+  flex: 1;
+  min-height: 160px;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .json-tree,
 .json-tree * {
-  -webkit-user-select: text !important;
-  user-select: text !important;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* 禁用展开/收起动画 */
+.json-tree {
+  height: 100%;
+  .ant-motion-collapse,
+  [class*='ant-motion-collapse'] {
+    animation-duration: 0s !important;
+    transition-duration: 0s !important;
+  }
+  .ant-tree-switcher {
+    transition: none !important;
+  }
 }
 
 .json-tree-node {
   display: inline-flex;
-  align-items: center;
-  gap: 8px;
+  align-items: flex-start;
+  gap: 6px;
+  white-space: normal;
+  word-break: break-all;
+  max-width: 100%;
+  cursor: default;
 }
 
 .json-tree-node--active-hit {
@@ -457,16 +499,22 @@ textarea,
 .json-tree-key {
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
   font-size: 12px;
+  flex-shrink: 0;
 }
 
 .json-tree-type {
   margin-inline-end: 0 !important;
+  flex-shrink: 0;
+  user-select: none;
 }
 
 .json-tree-value {
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
   font-size: 12px;
   opacity: 0.8;
+  white-space: pre-wrap;
+  word-break: break-all;
+  flex: 1;
 }
 
 .json-tree-mark {
@@ -474,6 +522,17 @@ textarea,
   color: inherit;
   border-radius: 2px;
   padding: 0;
+}
+
+.json-tree-parse-btn.ant-btn-link {
+  padding: 4px 2px 0;
+  height: auto;
+  line-height: 1;
+  font-size: 12px;
+  color: var(--ant-color-primary);
+  &:hover {
+    color: var(--ant-color-primary-hover);
+  }
 }
 
 .json-search-meta {

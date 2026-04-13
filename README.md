@@ -14,6 +14,13 @@
 - 主题模式：跟随系统 / 浅色 / 深色
 - 系统主题变化时自动同步（选择“跟随系统”时）
 - TodoList 工具模块
+- Agent 工作区
+  - 接入本机 CLI Provider（内置 GitHub Copilot CLI、Claude Code、Gemini CLI 预设）
+  - 接入自定义 API Provider（OpenAI 兼容 / Anthropic / Gemini）
+  - 配置 HTTP 代理并作用于 CLI / API 调度
+  - 基于 SQLite 持久化 Provider、代理、任务、日志和额度信息
+  - 支持多 Agent 任务编排、并行执行、日志回放、输入输出查看
+  - 支持按 Provider 统计消耗并在支持时刷新真实余额
 - 数据持久化到用户目录
   - macOS: `~/.developer-box`
   - Windows: `C:/Users/<用户名>/.developer-box`
@@ -42,3 +49,5 @@ pnpm build
 
 - `settings.json`：主题设置
 - `todos.json`：Todo 列表
+- `workspace.sqlite`：Agent 工作区的 Provider / 代理 / 任务 / 日志数据库
+- `workspace.key`：工作区敏感字段加密密钥

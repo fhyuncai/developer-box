@@ -1,0 +1,248 @@
+.workspace-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.workspace-hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.workspace-title {
+  margin-bottom: 0 !important;
+}
+
+.workspace-desc {
+  margin-bottom: 0 !important;
+  margin-top: 8px;
+  max-width: 760px;
+}
+
+.workspace-loading {
+  min-height: 420px;
+}
+
+.workspace-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+}
+
+.workspace-layout {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 16px;
+  min-height: 0;
+}
+
+.workspace-sidebar,
+.workspace-detail-card,
+.workspace-flow-card,
+.workspace-log-card,
+.workspace-empty-card,
+.workspace-provider-card {
+  border-radius: 14px;
+}
+
+.workspace-sidebar {
+  height: calc(100dvh - 256px);
+  overflow: hidden;
+
+  .ant-card-body {
+    height: 100%;
+    overflow: auto;
+    padding-right: 6px;
+  }
+}
+
+.workspace-task-item {
+  cursor: pointer;
+  padding-inline: 0 !important;
+
+  &.active .workspace-task-card {
+    border-color: rgba(22, 119, 255, 0.45);
+    background: rgba(22, 119, 255, 0.06);
+  }
+}
+
+.workspace-task-card {
+  width: 100%;
+  border: 1px solid rgba(128, 128, 128, 0.16);
+  border-radius: 12px;
+  padding: 12px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.workspace-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.workspace-detail-panels {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+}
+
+.workspace-agent-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.workspace-flow-card,
+.workspace-log-card {
+  min-height: 360px;
+}
+
+.workspace-agent-flow {
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+
+.workspace-agent-node {
+  flex: 0 0 300px;
+  min-width: 300px;
+  border: 1px solid rgba(128, 128, 128, 0.18);
+  border-radius: 12px;
+  padding: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.15s ease, background 0.15s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+  }
+
+  &.active {
+    border-color: rgba(22, 119, 255, 0.45);
+    background: rgba(22, 119, 255, 0.06);
+  }
+}
+
+.workspace-agent-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.workspace-log-stream {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 420px;
+  overflow: auto;
+  padding-right: 6px;
+}
+
+.workspace-log-line {
+  display: grid;
+  grid-template-columns: 64px 90px minmax(0, 1fr);
+  gap: 8px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+
+  &.level-error {
+    color: #cf1322;
+  }
+
+  &.level-warn {
+    color: #ad6800;
+  }
+}
+
+.workspace-log-time {
+  opacity: 0.65;
+}
+
+.workspace-log-message {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.workspace-code-block {
+  margin: 0;
+  border-radius: 12px;
+  padding: 14px;
+  min-height: 420px;
+  max-height: 420px;
+  overflow: auto;
+  font-size: 12px;
+  line-height: 1.65;
+  background: rgba(128, 128, 128, 0.08);
+  -webkit-user-select: text;
+  user-select: text;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.workspace-provider-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.workspace-form-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.workspace-form-grid--wide {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.workspace-step-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.workspace-step-card {
+  border-radius: 12px;
+}
+
+@media (max-width: 1200px) {
+  .workspace-stat-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .workspace-layout,
+  .workspace-detail-panels {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace-agent-node {
+    flex-basis: 260px;
+    min-width: 260px;
+  }
+
+  .workspace-sidebar {
+    height: auto;
+    max-height: 360px;
+  }
+}
+
+@media (max-width: 768px) {
+  .workspace-stat-grid,
+  .workspace-form-grid,
+  .workspace-form-grid--wide {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace-log-line {
+    grid-template-columns: 1fr;
+  }
+}

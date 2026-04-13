@@ -21,8 +21,8 @@ const HOME_MENU_ITEMS = [
   },
   {
     key: 'workspace',
-    title: '工作区',
-    description: '统一入口，集中管理你的开发流程'
+    title: 'Agent 工作区',
+    description: '调度 CLI / API agent，编排任务并查看日志与额度'
   }
 ];
 

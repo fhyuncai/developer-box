@@ -16,6 +16,7 @@ import {
   HomeOutlined,
   PlusOutlined,
   HistoryOutlined,
+  EditOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import BreadcrumbNav from '../../components/BreadcrumbNav';
@@ -289,26 +290,24 @@ export default function CheckinPage({ checkins, onCheckinsChange, onBack, onBack
               className="tool-entry"
               title={<span className="todo-list-title" title={item.title}>{item.title}</span>}
               extra={
-                <Switch
-                  size="small"
-                  checked={item.enabled}
-                  checkedChildren="启用"
-                  unCheckedChildren="禁用"
-                  onChange={(checked) => toggleEnabled(item.id, checked)}
-                />
+                <Space>
+                  <Button key="edit" type="link" color="default" variant="link" size="small" icon={<EditOutlined />} onClick={() => openEdit(item)} aria-label="编辑" />
+                  <Popconfirm
+                    key="del"
+                    title="确认删除该打卡？"
+                    okText="删除"
+                    cancelText="取消"
+                    onConfirm={() => removeCheckin(item.id)}
+                  >
+                    <Button type="link" danger size="small" icon={<DeleteOutlined />} aria-label="删除" />
+                  </Popconfirm>
+                  <Switch
+                    size="small"
+                    checked={item.enabled}
+                    onChange={(checked) => toggleEnabled(item.id, checked)}
+                  />
+                </Space>
               }
-              actions={[
-                <Button key="edit" type="text" size="small" onClick={() => openEdit(item)}>编辑</Button>,
-                <Popconfirm
-                  key="del"
-                  title="确认删除该打卡类型？"
-                  okText="删除"
-                  cancelText="取消"
-                  onConfirm={() => removeCheckin(item.id)}
-                >
-                  <Button type="text" danger size="small" icon={<DeleteOutlined />}>删除</Button>
-                </Popconfirm>,
-              ]}
             >
               <Typography.Text type="secondary" style={{ fontSize: 12 }}>
                 接下来最近 3 次打卡时间
@@ -324,15 +323,16 @@ export default function CheckinPage({ checkins, onCheckinsChange, onBack, onBack
                   ))
                 )}
               </Space>
-              <Typography.Text type="secondary" style={{ display: 'block', marginTop: 10, fontSize: 12 }}>
-                {runtime.statusText}
-              </Typography.Text>
-              <Flex justify="space-between" align="center" style={{ marginTop: 10 }}>
-                <Button type="primary" disabled={!runtime.canCheck} onClick={() => handleCheckin(item, runtime)}>
-                  {runtime.buttonText}
-                </Button>
-                {item.preset ? <Tag color="geekblue">预设</Tag> : <Tag>自定义</Tag>}
-              </Flex>
+              {item.enabled &&
+                <>
+                  <Typography.Text type="secondary" style={{ display: 'block', margin: '10px 0 5px', fontSize: 12 }}>
+                    {runtime.statusText}
+                  </Typography.Text>
+                  <Button type="primary" block disabled={!runtime.canCheck} onClick={() => handleCheckin(item, runtime)}>
+                    {runtime.buttonText}
+                  </Button>
+                </>
+              }
             </Card>
           </List.Item>
           );

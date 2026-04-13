@@ -1,8 +1,161 @@
 import { useMemo, useRef, useState } from 'react';
-import { Button, Flex, Input, Space, Tag, Tooltip, Tree, Typography } from 'antd';
-import { ColumnHeightOutlined, VerticalAlignMiddleOutlined, UpOutlined, DownOutlined } from '@ant-design/icons';
+import { Button, Flex, Input, Modal, Space, Tag, Tooltip, Tree, Typography } from 'antd';
+import { ColumnHeightOutlined, VerticalAlignMiddleOutlined, UpOutlined, DownOutlined, ApartmentOutlined } from '@ant-design/icons';
 
 const { TextArea } = Input;
+
+// Chrome DevTools 风格配色
+const TYPE_VALUE_COLOR = {
+  string: '#be8b77',
+  number: '#977dfb',
+  boolean: '#977dfb',
+  null: '#808080',
+  array: '#888888',
+  object: '#888888',
+};
+
+const formatPath = (key) => {
+  if (!key) return '';
+  if (key === '$') return '$';
+  return key.startsWith('$.') ? key.slice(2) : key;
+};
+
+const isJsonString = (str) => {
+  if (typeof str !== 'string') return false;
+  const trimmed = str.trim();
+  if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+    try {
+      JSON.parse(trimmed);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  return false;
+};
+
+// ---- Nested JSON tree rendered inside modal ----
+function NestedJsonTree({ value }) {
+  const buildNode = (val, path, label) => {
+    const type = val === null ? 'null' : Array.isArray(val) ? 'array' : typeof val;
+    const node = { key: path, meta: { label, value: val, type }, title: label, children: [] };
+    if (type === 'array') {
+      node.children = val.map((item, i) => buildNode(item, `${path}[${i}]`, `[${i}]`));
+    } else if (type === 'object') {
+      node.children = Object.entries(val).map(([k, v]) => buildNode(v, `${path}.${k}`, k));
+    } else {
+      node.isLeaf = true;
+    }
+    return node;
+  };
+
+  const brief = (val) => {
+    if (val === null) return 'null';
+    if (Array.isArray(val)) return `[${val.length}]`;
+    if (typeof val === 'object') return `{${Object.keys(val).length}}`;
+    if (typeof val === 'string') return `"${val}"`;
+    return String(val);
+  };
+
+  const treeData = useMemo(() => [buildNode(value, '$', '$')], [value]);
+
+  const allKeys = useMemo(() => {
+    const keys = [];
+    const walk = (nodes) => nodes.forEach((n) => { keys.push(n.key); if (n.children?.length) walk(n.children); });
+    walk(treeData);
+    return keys;
+  }, [treeData]);
+
+  const [expandedKeys, setExpandedKeys] = useState(() => allKeys);
+
+  const handleSelect = (keys, { node }) => {
+    const type = node.meta?.type;
+    if (type === 'object' || type === 'array') {
+      setExpandedKeys((prev) =>
+        prev.includes(node.key) ? prev.filter((k) => k !== node.key) : [...prev, node.key]
+      );
+    }
+  };
+
+  return (
+    <Tree
+      treeData={treeData}
+      expandedKeys={expandedKeys}
+      onExpand={setExpandedKeys}
+      onSelect={handleSelect}
+      showLine
+      className="json-tree"
+      titleRender={(node) => {
+        const type = node.meta?.type || 'unknown';
+        const isExpandable = type === 'object' || type === 'array';
+        const valBrief = brief(node.meta?.value);
+        const jsonParsable = type === 'string' && isJsonString(node.meta?.value);
+        return (
+          <NestedNodeTitle
+            node={node}
+            type={type}
+            valBrief={valBrief}
+            isExpandable={isExpandable}
+            jsonParsable={jsonParsable}
+          />
+        );
+      }}
+    />
+  );
+}
+
+function NestedNodeTitle({ node, type, valBrief, jsonParsable }) {
+  const [subVisible, setSubVisible] = useState(false);
+  const subParsed = useMemo(() => {
+    if (!jsonParsable) return null;
+    try { return JSON.parse(node.meta.value); } catch { return null; }
+  }, [jsonParsable, node.meta?.value]);
+
+  const path = formatPath(node.key);
+  const savedScrollRef = useRef(0);
+
+  const handleOpen = (e) => {
+    e.stopPropagation();
+    savedScrollRef.current = document.querySelector('.page-wrap')?.scrollTop ?? 0;
+    setSubVisible(true);
+  };
+
+  return (
+    <span className="json-tree-node" title={path}>
+      <span className="json-tree-key">{node.meta?.label}</span>
+      <Tag className="json-tree-type">{type}</Tag>
+      {jsonParsable && (
+        <Tooltip title={`解析 JSON`}>
+          <Button
+            size="small"
+            type="link"
+            icon={<ApartmentOutlined />}
+            className="json-tree-parse-btn"
+            onClick={handleOpen}
+          />
+        </Tooltip>
+      )}
+      <span className="json-tree-value" style={{ color: TYPE_VALUE_COLOR[type] }}>{valBrief}</span>
+      {subParsed !== null && (
+        <Modal
+          title={`"${path}" JSON 解析`}
+          open={subVisible}
+          onCancel={() => setSubVisible(false)}
+          footer={null}
+          width="90%"
+          styles={{ body: { height: 'calc(90vh - 140px)', overflowY: 'auto', overflowX: 'hidden' } }}
+          afterClose={() => {
+            const el = document.querySelector('.page-wrap');
+            if (el) el.scrollTop = savedScrollRef.current;
+          }}
+          destroyOnHidden
+        >
+          <NestedJsonTree value={subParsed} />
+        </Modal>
+      )}
+    </span>
+  );
+}
 
 export default function JsonTool() {
   const [input, setInput] = useState('');
@@ -13,8 +166,17 @@ export default function JsonTool() {
   const [selectedKey, setSelectedKey] = useState(null);
   const [searchText, setSearchText] = useState('');
   const [activeMatchIndex, setActiveMatchIndex] = useState(-1);
+  const [modalState, setModalState] = useState({ visible: false, value: null, title: '' });
 
   const treeRef = useRef(null);
+
+  const openModal = (value, title) => {
+    setModalState({ visible: true, value, title });
+  };
+
+  const closeModal = () => {
+    setModalState((prev) => ({ ...prev, visible: false }));
+  };
 
   const collectKeys = (nodes) => {
     const keys = [];
@@ -244,10 +406,12 @@ export default function JsonTool() {
   return (
     <Flex vertical gap={12} className="json-tool">
       <Space wrap>
-        <Button type="primary" onClick={parseJson}>解析</Button>
-        <Button onClick={format}>格式化</Button>
-        <Button onClick={minify}>压缩</Button>
-        <Button onClick={() => setShowRawInput((v) => !v)}>{showRawInput ? '收起原始数据' : '展开原始数据'}</Button>
+        {showRawInput && <Button type="primary" onClick={parseJson}>解析</Button>}
+        {showRawInput && <Button onClick={format}>格式化</Button>}
+        {showRawInput && <Button onClick={minify}>压缩</Button>}
+        {parsed !== null && !showRawInput && (
+          <Button onClick={() => setShowRawInput(true)}>显示原始数据</Button>
+        )}
         <Button danger onClick={clear}>清空</Button>
       </Space>
 
@@ -328,21 +492,51 @@ export default function JsonTool() {
               ref={treeRef}
               treeData={treeData}
               expandedKeys={expandedKeys}
-              selectedKeys={selectedKey ? [selectedKey] : []}
               onExpand={setExpandedKeys}
-              onSelect={(keys) => setSelectedKey(keys[0] || null)}
-              height={360}
+              onSelect={(_, { node }) => {
+                const type = node.meta?.type;
+                if (type === 'object' || type === 'array') {
+                  setExpandedKeys((prev) =>
+                    prev.includes(node.key) ? prev.filter((k) => k !== node.key) : [...prev, node.key]
+                  );
+                }
+              }}
+              virtual={false}
               showLine
               className="json-tree"
               titleRender={(node) => {
                 const valueType = node.meta?.type || 'unknown';
                 const valueBrief = stringifyBrief(node.meta?.value);
                 const isActiveHit = selectedKey === node.key && matchKeys.includes(node.key);
+                const isJsonStr = valueType === 'string' && isJsonString(node.meta?.value);
+                const path = formatPath(node.key);
                 return (
-                  <span className={`json-tree-node ${isActiveHit ? 'json-tree-node--active-hit' : ''}`}>
+                  <span
+                    className={`json-tree-node ${isActiveHit ? 'json-tree-node--active-hit' : ''}`}
+                    title={path}
+                  >
                     <span className="json-tree-key">{highlightText(node.meta?.label, normalizedKeyword)}</span>
-                    <Tag className="json-tree-type" color="default">{valueType}</Tag>
-                    <span className="json-tree-value">{highlightText(valueBrief, normalizedKeyword)}</span>
+                    <Tag className="json-tree-type">{valueType}</Tag>
+                    {isJsonStr && (
+                      <Tooltip title={`解析 JSON`}>
+                        <Button
+                          size="small"
+                          type="link"
+                          icon={<ApartmentOutlined />}
+                          className="json-tree-parse-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            try {
+                              const subVal = JSON.parse(node.meta.value);
+                              openModal(subVal, `"${path}" JSON 解析`);
+                            } catch {}
+                          }}
+                        />
+                      </Tooltip>
+                    )}
+                    <span className="json-tree-value" style={{ color: TYPE_VALUE_COLOR[valueType] }}>
+                      {highlightText(valueBrief, normalizedKeyword)}
+                    </span>
                   </span>
                 );
               }}
@@ -350,6 +544,19 @@ export default function JsonTool() {
           </div>
         </div>
       )}
+
+      <Modal
+        title={modalState.title}
+        open={modalState.visible}
+        onCancel={closeModal}
+        footer={null}
+        width="90%"
+        styles={{ body: { height: 'calc(90vh - 140px)', overflowY: 'auto', overflowX: 'hidden' } }}
+        focusTriggerAfterClose={false}
+        destroyOnHidden
+      >
+        {modalState.value !== null && <NestedJsonTree value={modalState.value} />}
+      </Modal>
     </Flex>
   );
 }
