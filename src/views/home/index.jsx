@@ -1,9 +1,14 @@
 import { useMemo, useState } from 'react';
-import { Button, Card, Statistic, Tooltip, Typography, Space } from 'antd';
+import { Button, Card, Statistic, Typography, Space } from 'antd';
 import { CheckCircleTwoTone, CheckOutlined, EditOutlined, MinusCircleFilled, PlusCircleFilled, RightOutlined } from '@ant-design/icons';
 import './index.scss';
 
 const HOME_MENU_ITEMS = [
+  {
+    key: 'notes',
+    title: '笔记本',
+    description: '快捷记录灵感'
+  },
   {
     key: 'toolbox',
     title: '工具箱',
@@ -12,17 +17,12 @@ const HOME_MENU_ITEMS = [
   {
     key: 'todo-list',
     title: 'Todo List',
-    description: '多项目任务清单管理'
+    description: '项目任务清单管理'
   },
   {
     key: 'checkin',
     title: '健康打卡',
-    description: '管理健康打卡类型、时间与启用状态'
-  },
-  {
-    key: 'workspace',
-    title: 'Agent 工作区',
-    description: '调度 CLI / API agent，编排任务并查看日志与额度'
+    description: '建立良好习惯'
   }
 ];
 
@@ -62,14 +62,14 @@ export default function HomePage({
   const handleRemove = (key) => {
     onDashboardConfigChange(
       pinnedBoards.filter((k) => k !== key),
-      orderedDashboardItems.map((i) => i.key)
+      orderedDashboardItems.map((item) => item.key)
     );
   };
 
   const handleAdd = (key) => {
     onDashboardConfigChange(
       [...pinnedBoards, key],
-      orderedDashboardItems.map((i) => i.key)
+      orderedDashboardItems.map((item) => item.key)
     );
   };
 
@@ -77,7 +77,7 @@ export default function HomePage({
     if (!draggingKey || draggingKey === targetKey) {
       return;
     }
-    const keys = orderedDashboardItems.map((i) => i.key);
+    const keys = orderedDashboardItems.map((item) => item.key);
     const fromIndex = keys.indexOf(draggingKey);
     const toIndex = keys.indexOf(targetKey);
     if (fromIndex < 0 || toIndex < 0) {
@@ -96,21 +96,18 @@ export default function HomePage({
 
         <div className="content-area">
           <Space align="baseline" className="dashboard-header">
-            <Typography.Title level={5} className="section-title">
-              看板
-            </Typography.Title>
+            <Typography.Title level={5} className="section-title">看板</Typography.Title>
             <Button
               className="board-edit-trigger"
               size="small"
               shape="circle"
               type={editMode ? 'primary' : 'text'}
               icon={editMode ? <CheckOutlined /> : <EditOutlined />}
-              onClick={() => setEditMode((v) => !v)}
+              onClick={() => setEditMode((value) => !value)}
               aria-label={editMode ? '完成编辑' : '编辑看板'}
             />
           </Space>
 
-          {/* 展示中区域 */}
           <div className="dashboard-zone">
             {visibleItems.length === 0 ? (
               <div className="dashboard-zone-empty">
@@ -127,7 +124,7 @@ export default function HomePage({
                       className={`dashboard-card-wrap${editMode ? ' edit-mode' : ''}${draggingKey === key ? ' dragging' : ''}${dragOverKey === key ? ' drag-over' : ''}`}
                       draggable={editMode}
                       onDragStart={editMode ? () => setDraggingKey(key) : undefined}
-                      onDragOver={editMode ? (e) => { e.preventDefault(); setDragOverKey(key); } : undefined}
+                      onDragOver={editMode ? (event) => { event.preventDefault(); setDragOverKey(key); } : undefined}
                       onDrop={editMode ? () => { handleDrop(key); setDragOverKey(null); } : undefined}
                       onDragEnd={editMode ? () => { setDraggingKey(null); setDragOverKey(null); } : undefined}
                     >
@@ -142,10 +139,9 @@ export default function HomePage({
                     </div>
                   );
                 })}
-                {editMode &&
-                  hiddenItems.map(({ key }) => (
-                    <div key={`ph-vis-${key}`} className="dashboard-card-placeholder" />
-                  ))}
+                {editMode && hiddenItems.map(({ key }) => (
+                  <div key={`ph-vis-${key}`} className="dashboard-card-placeholder" />
+                ))}
               </div>
             )}
           </div>
@@ -184,9 +180,7 @@ export default function HomePage({
       </section>
 
       <section className="content-area">
-        <Typography.Title level={5} className="section-title">
-          功能
-        </Typography.Title>
+        <Typography.Title level={5} className="section-title">功能</Typography.Title>
         <div className="tool-grid">
           {HOME_MENU_ITEMS.map((item) => (
             <Card key={item.key} hoverable className="tool-entry" onClick={() => onOpenPage(item.key)}>

@@ -4,12 +4,12 @@ import {
   List, Popconfirm, Progress, Statistic, Tag, Typography,
 } from 'antd';
 import {
-  ArrowLeftOutlined, CalendarOutlined, CheckCircleTwoTone,
-  DeleteOutlined, HomeOutlined,
+  CalendarOutlined, CheckCircleTwoTone,
+  DeleteOutlined,
   PlusOutlined, UnorderedListOutlined, FileTextOutlined,
   ExclamationCircleOutlined, CloseOutlined,
 } from '@ant-design/icons';
-import BreadcrumbNav from '../../components/BreadcrumbNav';
+import PageHeader from '../../components/PageHeader';
 import CreateListModal from './components/CreateListModal';
 import TodoListDetail from './components/TodoListDetail';
 import dayjs from 'dayjs';
@@ -108,29 +108,24 @@ export default function TodoListsPage({ todoLists, onTodoListsChange, onBack, on
   /* ── Overview / list page ── */
   return (
     <section className="content-area todo-lists-page">
-      <Flex justify="space-between" align="center" className="page-nav-row">
-        <BreadcrumbNav items={[{ title: '首页', onClick: onBackHome }, { title: 'Todo List' }]} />
-        <Flex gap={8}>
-          <Button shape="circle" icon={batchMode ? <CloseOutlined /> : <UnorderedListOutlined />} onClick={toggleBatchMode} aria-label={batchMode ? '取消批量操作' : '批量操作'} />
-          {batchMode && (
-            <Popconfirm
-              title="确认删除已选清单？"
-              description="所选清单内所有任务将被删除"
-              okText="删除"
-              cancelText="取消"
-              onConfirm={deleteSelectedLists}
-              disabled={selectedIds.length === 0}
-            >
-              <Button danger shape="circle" disabled={selectedIds.length === 0} icon={<DeleteOutlined />} aria-label="批量删除" />
-            </Popconfirm>
-          )}
-          {!batchMode && (
-            <Button shape="circle" type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)} aria-label="新建清单" />
-          )}
-          <Button shape="circle" icon={<ArrowLeftOutlined />} onClick={onBack} aria-label="返回" />
-          <Button shape="circle" icon={<HomeOutlined />} onClick={onBackHome} aria-label="返回首页" />
-        </Flex>
-      </Flex>
+      <PageHeader items={[{ title: '首页', onClick: onBackHome }, { title: 'Todo List' }]} onBack={onBack} onBackHome={onBackHome}>
+        <Button shape="circle" icon={batchMode ? <CloseOutlined /> : <UnorderedListOutlined />} onClick={toggleBatchMode} aria-label={batchMode ? '取消批量操作' : '批量操作'} />
+        {batchMode && (
+          <Popconfirm
+            title="确认删除已选清单？"
+            description="所选清单内所有任务将被删除"
+            okText="删除"
+            cancelText="取消"
+            onConfirm={deleteSelectedLists}
+            disabled={selectedIds.length === 0}
+          >
+            <Button danger shape="circle" disabled={selectedIds.length === 0} icon={<DeleteOutlined />} aria-label="批量删除" />
+          </Popconfirm>
+        )}
+        {!batchMode && (
+          <Button shape="circle" type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)} aria-label="新建清单" />
+        )}
+      </PageHeader>
 
       {/* Overview stats */}
       <div className="todo-overview-stats">

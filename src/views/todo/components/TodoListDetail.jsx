@@ -4,10 +4,10 @@ import {
   List, Popconfirm, Progress, Tag, Typography,
 } from 'antd';
 import {
-  ArrowLeftOutlined, CalendarOutlined, DeleteOutlined,
-  HomeOutlined, PlusOutlined,
+  CalendarOutlined, DeleteOutlined,
+  PlusOutlined,
 } from '@ant-design/icons';
-import BreadcrumbNav from '../../../components/BreadcrumbNav';
+import PageHeader from '../../../components/PageHeader';
 import dayjs from 'dayjs';
 
 const { RangePicker } = DatePicker;
@@ -65,30 +65,32 @@ export default function TodoListDetail({ list, onBack, onBackHome, onUpdate, onD
     setEditingTitle(false);
   };
 
+  const handleBack = () => {
+    setEditingTitle(false);
+    onBack();
+  };
+
   return (
     <section className="content-area todo-list-page">
-      <Flex justify="space-between" align="center" className="page-nav-row">
-        <BreadcrumbNav
-          items={[
-            { title: '首页', onClick: onBackHome },
-            { title: 'Todo List', onClick: () => { onBack(); setEditingTitle(false); } },
-            { title: list.title },
-          ]}
-        />
-        <Flex gap={8}>
-          <Popconfirm
-            title="确认删除此清单？"
-            description="清单内所有任务将被删除"
-            okText="删除"
-            cancelText="取消"
-            onConfirm={onDelete}
-          >
-            <Button danger shape="circle" icon={<DeleteOutlined />} aria-label="删除清单" />
-          </Popconfirm>
-          <Button shape="circle" icon={<ArrowLeftOutlined />} onClick={onBack} aria-label="返回清单" />
-          <Button shape="circle" icon={<HomeOutlined />} onClick={onBackHome} aria-label="返回首页" />
-        </Flex>
-      </Flex>
+      <PageHeader
+        items={[
+          { title: '首页', onClick: onBackHome },
+          { title: 'Todo List', onClick: handleBack },
+          { title: list.title },
+        ]}
+        onBack={handleBack}
+        onBackHome={onBackHome}
+      >
+        <Popconfirm
+          title="确认删除此清单？"
+          description="清单内所有任务将被删除"
+          okText="删除"
+          cancelText="取消"
+          onConfirm={onDelete}
+        >
+          <Button danger shape="circle" icon={<DeleteOutlined />} aria-label="删除清单" />
+        </Popconfirm>
+      </PageHeader>
 
       <Card size="small">
         <div className="todo-detail-header">

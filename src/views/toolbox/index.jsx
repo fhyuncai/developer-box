@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Card, Flex, Input, Tooltip, Typography } from 'antd';
-import { ArrowLeftOutlined, HomeOutlined, RightOutlined, SearchOutlined } from '@ant-design/icons';
-import BreadcrumbNav from '../../components/BreadcrumbNav';
+import { Card, Flex, Input, Typography } from 'antd';
+import { RightOutlined, SearchOutlined } from '@ant-design/icons';
+import PageHeader from '../../components/PageHeader';
 
 export default function ToolboxPage({ tools, onBack, onBackHome, onOpenTool }) {
   const [query, setQuery] = useState('');
@@ -57,28 +57,19 @@ export default function ToolboxPage({ tools, onBack, onBackHome, onOpenTool }) {
 
   return (
     <section className="content-area toolbox-page">
-      <Flex justify="space-between" align="center" className="page-nav-row">
-        <BreadcrumbNav items={[{ title: '首页', onClick: onBackHome }, { title: '工具箱' }]} />
-        <Flex gap={8} align="center">
-          <Input
-            ref={searchRef}
-            className="toolbox-search"
-            prefix={<SearchOutlined style={{ opacity: 0.4 }} />}
-            placeholder={`搜索工具… (${isMac ? '⌘F' : 'Ctrl+F'})`}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => e.key === 'Escape' && setQuery('')}
-            allowClear
-            styles={{ root: { borderRadius: 100 } }}
-          />
-          <Tooltip title="返回上一页">
-            <Button shape="circle" icon={<ArrowLeftOutlined />} onClick={onBack} aria-label="返回上一页" />
-          </Tooltip>
-          <Tooltip title="返回首页">
-            <Button shape="circle" icon={<HomeOutlined />} onClick={onBackHome} aria-label="返回首页" />
-          </Tooltip>
-        </Flex>
-      </Flex>
+      <PageHeader items={[{ title: '首页', onClick: onBackHome }, { title: '工具箱' }]} onBack={onBack} onBackHome={onBackHome}>
+        <Input
+          ref={searchRef}
+          className="toolbox-search"
+          prefix={<SearchOutlined style={{ opacity: 0.4 }} />}
+          placeholder={`搜索工具… (${isMac ? '⌘F' : 'Ctrl+F'})`}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => e.key === 'Escape' && setQuery('')}
+          allowClear
+          styles={{ root: { borderRadius: 100 } }}
+        />
+      </PageHeader>
 
       {filteredFlat ? (
         filteredFlat.length === 0 ? (

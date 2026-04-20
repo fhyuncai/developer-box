@@ -4,11 +4,10 @@ import zhCN from 'antd/locale/zh_CN';
 import dayjs from 'dayjs';
 import 'dayjs/locale/zh-cn';
 import HomePage from './views/home';
+import NotesPage from './views/notes';
 import ToolboxPage from './views/toolbox';
 import TodoListsPage from './views/todo';
 import CheckinPage from './views/checkin';
-import WorkspacePage from './views/workspace';
-import WorkspaceTaskDetailPage from './views/workspace/detail';
 import ToolPage from './views/toolbox/components/ToolPage';
 import TitleBar from './components/TitleBar';
 import SettingsModal from './components/SettingsModal';
@@ -28,8 +27,8 @@ const TOOLS = [
   { key: 'url-codec', title: 'URL 编解码', description: 'URL percent 编码与解码', group: '编码 / 解码' },
   { key: 'unicode', title: 'Unicode 编码转换', description: '文本与 \\uXXXX 转义互转', group: '编码 / 解码' },
   { key: 'radix', title: '进制转换', description: '二 / 八 / 十 / 十六进制互转', group: '进制 / 颜色' },
-  { key: 'rgb-hex', title: '颜色选择器', description: '颜色选择与 HEX/RGB/HSL/HWB/LCH/CMYK 互转', group: '进制 / 颜色' },
-  { key: 'hash', title: 'Hash 哈希计算', description: 'MD5/SHA1/SHA224/SHA256/SHA384/SHA512/SHA3-256/RIPEMD-160', group: '加密 / 安全' },
+  { key: 'rgb-hex', title: '颜色选择器', description: '颜色选择与颜色代码格式互转', group: '进制 / 颜色' },
+  { key: 'hash', title: 'Hash 哈希计算', description: 'MD5、SHA、RIPEMD', group: '加密 / 安全' },
   { key: 'aes', title: 'AES 加解密', description: 'AES 对称加密与解密', group: '加密 / 安全' },
   { key: 'jwt', title: 'JWT 解析', description: '解析 Header、Payload，检查过期', group: '加密 / 安全' },
   { key: 'json', title: 'JSON 工具', description: 'JSON 解析、格式化、压缩', group: '格式化' },
@@ -83,12 +82,12 @@ export default function App() {
   const [themeMode, setThemeMode] = useState('system');
   const [systemTheme, setSystemTheme] = useState('light');
   const [todoLists, setTodoLists] = useState([]);
+  const [notes, setNotes] = useState([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [pinnedBoards, setPinnedBoards] = useState(DEFAULT_PINNED);
   const [dashboardOrder, setDashboardOrder] = useState(DEFAULT_DASHBOARD_ORDER);
   const [checkins, setCheckins] = useState(DEFAULT_CHECKINS);
   const [pageStack, setPageStack] = useState(['home']);
-  const [workspaceDetailTaskId, setWorkspaceDetailTaskId] = useState('');
 
   useEffect(() => {
     let mounted = true;
@@ -97,10 +96,11 @@ export default function App() {
     let unsubscribeCheckinNotification = null;
 
     async function bootstrap() {
-      const [settings, list, sysTheme] = await Promise.all([
+      const [settings, list, sysTheme, noteList] = await Promise.all([
         window.developerBox.getSettings(),
         window.developerBox.getTodos(),
-        window.developerBox.getSystemTheme()
+        window.developerBox.getSystemTheme(),
+        window.developerBox.listNotes(),
       ]);
 
       if (!mounted) {
@@ -114,6 +114,7 @@ export default function App() {
       setCheckins(loadedCheckins);
       window.developerBox.updateCheckins(loadedCheckins);
       setTodoLists(migrateOldTodos(Array.isArray(list) ? list : []));
+      setNotes(Array.isArray(noteList) ? noteList : []);
       setSystemTheme(sysTheme);
 
       unsubscribeTheme = window.developerBox.onSystemThemeChange((value) => {
@@ -158,7 +159,7 @@ export default function App() {
     [effectiveTheme]
   );
 
-  const doneCount = todoLists.reduce((s, l) => s + l.items.filter((i) => i.done).length, 0);
+  const doneCount = todoLists.reduce((sum, list) => sum + list.items.filter((item) => item.done).length, 0);
 
   const saveMergedSettings = async (nextThemeMode, nextPinnedBoards, nextDashboardOrder, nextCheckins = checkins) => {
     await window.developerBox.saveSettings({
@@ -194,6 +195,13 @@ export default function App() {
 
   const currentPage = pageStack[pageStack.length - 1] || 'home';
 
+  useEffect(() => {
+    const scrollTarget = document.querySelector('.page-wrap');
+    if (scrollTarget) {
+      scrollTarget.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    }
+  }, [currentPage]);
+
   const goToPage = (nextPage) => {
     setPageStack((prev) => {
       const current = prev[prev.length - 1];
@@ -222,80 +230,71 @@ export default function App() {
         <div className="app-shell">
           <TitleBar onOpenSettings={() => setSettingsOpen(true)} />
           <main className="page-wrap">
-          {currentPage === 'home' && (
-            <HomePage
-              pinnedBoards={pinnedBoards}
-              dashboardOrder={dashboardOrder}
-              dashboardItems={DASHBOARD_ITEMS}
-              doneCount={doneCount}
-              onDashboardConfigChange={handleDashboardConfigChange}
-              onOpenPage={(pageKey) => goToPage(pageKey)}
-            />
-          )}
+            {currentPage === 'home' && (
+              <HomePage
+                pinnedBoards={pinnedBoards}
+                dashboardOrder={dashboardOrder}
+                dashboardItems={DASHBOARD_ITEMS}
+                doneCount={doneCount}
+                notes={notes}
+                onDashboardConfigChange={handleDashboardConfigChange}
+                onOpenPage={(pageKey) => goToPage(pageKey)}
+              />
+            )}
 
-          {currentPage === 'toolbox' && (
-            <ToolboxPage
-              tools={TOOLS}
-              onBack={goBack}
-              onBackHome={goHome}
-              onOpenTool={(toolKey) => goToPage(toolKey)}
-            />
-          )}
+            {currentPage === 'notes' && (
+              <NotesPage
+                initialNotes={notes}
+                onNotesChange={setNotes}
+                onBack={goBack}
+                onBackHome={goHome}
+              />
+            )}
 
-          {currentPage === 'todo-list' && (
-            <TodoListsPage
-              todoLists={todoLists}
-              onTodoListsChange={handleTodoListsChange}
-              onBack={goBack}
-              onBackHome={goHome}
-            />
-          )}
+            {currentPage === 'toolbox' && (
+              <ToolboxPage
+                tools={TOOLS}
+                onBack={goBack}
+                onBackHome={goHome}
+                onOpenTool={(toolKey) => goToPage(toolKey)}
+              />
+            )}
 
-          {currentPage === 'checkin' && (
-            <CheckinPage
-              checkins={checkins}
-              onCheckinsChange={handleCheckinsChange}
-              onBack={goBack}
-              onBackHome={goHome}
-            />
-          )}
+            {currentPage === 'todo-list' && (
+              <TodoListsPage
+                todoLists={todoLists}
+                onTodoListsChange={handleTodoListsChange}
+                onBack={goBack}
+                onBackHome={goHome}
+              />
+            )}
 
-          {currentPage === 'workspace' && (
-            <WorkspacePage
-              onBack={goBack}
-              onBackHome={goHome}
-              onOpenTaskDetail={(taskId) => {
-                setWorkspaceDetailTaskId(taskId);
-                goToPage('workspace-task-detail');
-              }}
-            />
-          )}
+            {currentPage === 'checkin' && (
+              <CheckinPage
+                checkins={checkins}
+                onCheckinsChange={handleCheckinsChange}
+                onBack={goBack}
+                onBackHome={goHome}
+              />
+            )}
 
-          {currentPage === 'workspace-task-detail' && (
-            <WorkspaceTaskDetailPage
-              taskId={workspaceDetailTaskId}
-              onBack={goBack}
-              onBackHome={goHome}
-            />
-          )}
+            {!['home', 'notes', 'toolbox', 'todo-list', 'checkin'].includes(currentPage) && (
+              <ToolPage
+                toolKey={currentPage}
+                toolTitle={TOOLS.find((tool) => tool.key === currentPage)?.title ?? ''}
+                onBack={goBack}
+                onBackToolbox={goToolbox}
+                onBackHome={goHome}
+              />
+            )}
 
-          {!['home', 'toolbox', 'todo-list', 'checkin', 'workspace', 'workspace-task-detail'].includes(currentPage) && (
-            <ToolPage
-              toolKey={currentPage}
-              toolTitle={TOOLS.find((t) => t.key === currentPage)?.title ?? ''}
-              onBack={goBack}
-              onBackToolbox={goToolbox}
-              onBackHome={goHome}
+            <SettingsModal
+              open={settingsOpen}
+              onClose={() => setSettingsOpen(false)}
+              themeMode={themeMode}
+              effectiveTheme={effectiveTheme}
+              onThemeModeChange={handleThemeModeChange}
             />
-          )}
-
-          <SettingsModal
-            open={settingsOpen}
-            onClose={() => setSettingsOpen(false)}
-            themeMode={themeMode}
-            effectiveTheme={effectiveTheme}
-            onThemeModeChange={handleThemeModeChange}
-          />
           </main>
         </div>
       </AntdApp>

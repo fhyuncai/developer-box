@@ -9,17 +9,16 @@ import {
   Space,
   Tag,
   Typography,
+  Tooltip
 } from 'antd';
 import {
-  ArrowLeftOutlined,
   DeleteOutlined,
-  HomeOutlined,
   PlusOutlined,
   HistoryOutlined,
   EditOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import BreadcrumbNav from '../../components/BreadcrumbNav';
+import PageHeader from '../../components/PageHeader';
 import CheckinFormModal from './components/CheckinFormModal';
 import CheckinHistoryModal from './components/CheckinHistoryModal';
 
@@ -252,15 +251,14 @@ export default function CheckinPage({ checkins, onCheckinsChange, onBack, onBack
 
   return (
     <section className="content-area checkin-page">
-      <Flex justify="space-between" align="center" className="page-nav-row">
-        <BreadcrumbNav shape="circle" items={[{ title: '首页', onClick: onBackHome }, { title: '健康打卡' }]} />
-        <Flex gap={8}>
+      <PageHeader items={[{ title: '首页', onClick: onBackHome }, { title: '健康打卡' }]} onBack={onBack} onBackHome={onBackHome}>
+        <Tooltip title="历史概览">
           <Button shape="circle" icon={<HistoryOutlined />} onClick={() => setHistoryOpen(true)} aria-label="历史概览" />
-          <Button shape="circle" type="primary" icon={<PlusOutlined />} onClick={openCreate} aria-label="新建打卡" />
-          <Button shape="circle" icon={<ArrowLeftOutlined />} onClick={onBack} aria-label="返回" />
-          <Button shape="circle" icon={<HomeOutlined />} onClick={onBackHome} aria-label="返回首页" />
-        </Flex>
-      </Flex>
+        </Tooltip>
+          <Tooltip title="新建打卡">
+            <Button shape="circle" type="primary" icon={<PlusOutlined />} onClick={openCreate} aria-label="新建打卡" />
+          </Tooltip>
+      </PageHeader>
 
       <Card size="small" style={{ marginBottom: 12 }}>
         <Flex justify="space-between" align="center" wrap="wrap" gap={12}>

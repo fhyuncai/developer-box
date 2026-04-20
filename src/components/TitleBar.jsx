@@ -31,7 +31,7 @@ export default function TitleBar({ onOpenSettings }) {
       <span className="titlebar-title">Developer Box</span>
 
       <div className="titlebar-actions">
-        <Tooltip title="设置" placement="bottom">
+        <Tooltip title="设置" placement="bottom" zIndex={9999}>
           <Button
             className="titlebar-btn"
             type="text"
@@ -40,7 +40,7 @@ export default function TitleBar({ onOpenSettings }) {
             onClick={onOpenSettings}
           />
         </Tooltip>
-        <Tooltip title={pinned ? '取消置顶' : '窗口置顶'} placement="bottom">
+        <Tooltip title={pinned ? '取消置顶' : '窗口置顶'} placement="bottomRight" zIndex={9999}>
           <Button
             className={`titlebar-btn${pinned ? ' titlebar-btn--active' : ''}`}
             type="text"
