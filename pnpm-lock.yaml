@@ -14,9 +14,15 @@ importers:
       better-sqlite3:
         specifier: ^12.9.0
         version: 12.9.0
+      bindings:
+        specifier: ^1.5.0
+        version: 1.5.0
       dayjs:
         specifier: ^1.11.20
         version: 1.11.20
+      file-uri-to-path:
+        specifier: ^1.0.0
+        version: 1.0.0
       proxy-agent:
         specifier: ^8.0.1
         version: 8.0.1

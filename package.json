@@ -1,7 +1,7 @@
 {
   "name": "developer-box",
   "version": "0.0.1",
-  "description": "Developer toolbox desktop app for macOS and Windows",
+  "description": "Developer Dox",
   "packageManager": "pnpm@10.20.0",
   "type": "module",
   "main": "electron/main.cjs",
@@ -64,8 +64,10 @@
   },
   "dependencies": {
     "axios": "^1.15.0",
+    "bindings": "^1.5.0",
     "better-sqlite3": "^12.9.0",
     "dayjs": "^1.11.20",
+    "file-uri-to-path": "^1.0.0",
     "proxy-agent": "^8.0.1"
   },
   "devDependencies": {

@@ -241,24 +241,33 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
-  await ensureDataDir();
-  initializeNotesDatabase(DATA_DIR);
-  setupMenu();
-  createWindow();
+  try {
+    await ensureDataDir();
+    initializeNotesDatabase(DATA_DIR);
+    setupMenu();
+    createWindow();
 
-  // 加载打卡配置并启动通知调度
-  const settings = await readJson(SETTINGS_FILE, {});
-  if (Array.isArray(settings?.checkins)) {
-    checkinData = settings.checkins;
-  }
-  startCheckinScheduler();
-
-  nativeTheme.on('updated', () => {
-    const value = getSystemTheme();
-    for (const win of BrowserWindow.getAllWindows()) {
-      win.webContents.send('system-theme-changed', value);
+    // 加载打卡配置并启动通知调度
+    const settings = await readJson(SETTINGS_FILE, {});
+    if (Array.isArray(settings?.checkins)) {
+      checkinData = settings.checkins;
     }
-  });
+    startCheckinScheduler();
+
+    nativeTheme.on('updated', () => {
+      const value = getSystemTheme();
+      for (const win of BrowserWindow.getAllWindows()) {
+        win.webContents.send('system-theme-changed', value);
+      }
+    });
+  } catch (error) {
+    console.error('Failed to start application', error);
+    dialog.showErrorBox(
+      '应用启动失败',
+      error && error.stack ? error.stack : String(error)
+    );
+    app.quit();
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
