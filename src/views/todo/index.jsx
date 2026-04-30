@@ -51,15 +51,15 @@ export default function TodoListsPage({ todoLists, onTodoListsChange, onBack, on
   const updateList = (id, patch) =>
     onTodoListsChange(todoLists.map((l) => (l.id === id ? { ...l, ...patch } : l)));
 
-  const createList = (title, range) => {
+  const createList = (title, dates) => {
     onTodoListsChange([
       ...todoLists,
       {
         id: Date.now().toString(36),
         title,
         items: [],
-        startDate: range?.[0] ? range[0].format('YYYY-MM-DD') : null,
-        dueDate: range?.[1] ? range[1].format('YYYY-MM-DD') : null,
+        startDate: dates?.startDate ? dates.startDate.format('YYYY-MM-DD') : null,
+        dueDate: dates?.dueDate ? dates.dueDate.format('YYYY-MM-DD') : null,
         createdAt: Date.now(),
       },
     ]);
@@ -213,10 +213,16 @@ export default function TodoListsPage({ todoLists, onTodoListsChange, onBack, on
                   </div>
                   {(list.startDate || list.dueDate) && (
                     <Flex gap={10} wrap="wrap" style={{ marginTop: 8 }}>
-                      {(list.startDate || list.dueDate) && (
+                      {list.startDate && (
                         <Typography.Text type="secondary" style={{ fontSize: 11 }}>
                           <CalendarOutlined style={{ marginRight: 3 }} />
-                          {list.startDate}{(list.startDate && list.dueDate) && ' ~ '}{list.dueDate}
+                          开始 {list.startDate}
+                        </Typography.Text>
+                      )}
+                      {list.dueDate && (
+                        <Typography.Text type="secondary" style={{ fontSize: 11 }}>
+                          <CalendarOutlined style={{ marginRight: 3 }} />
+                          截止 {list.dueDate}
                         </Typography.Text>
                       )}
                     </Flex>

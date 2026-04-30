@@ -1,25 +1,27 @@
 import { useState } from 'react';
 import { DatePicker, Flex, Input, Modal } from 'antd';
 
-const { RangePicker } = DatePicker;
 const LIST_TITLE_MAX_LENGTH = 40;
 
 export default function CreateListModal({ open, onClose, onCreate }) {
   const [title, setTitle] = useState('');
-  const [range, setRange] = useState(null);
+  const [startDate, setStartDate] = useState(null);
+  const [dueDate, setDueDate] = useState(null);
 
   const handleCreate = () => {
     const trimmed = title.trim().slice(0, LIST_TITLE_MAX_LENGTH);
     if (!trimmed) return;
-    onCreate(trimmed, range);
+    onCreate(trimmed, { startDate, dueDate });
     setTitle('');
-    setRange(null);
+    setStartDate(null);
+    setDueDate(null);
   };
 
   const handleClose = () => {
     onClose();
     setTitle('');
-    setRange(null);
+    setStartDate(null);
+    setDueDate(null);
   };
 
   return (
@@ -43,11 +45,19 @@ export default function CreateListModal({ open, onClose, onCreate }) {
           showCount
           autoFocus
         />
-        <RangePicker
-          placeholder={['开始时间（可选）', '截止时间（可选）']}
-          value={range}
-          onChange={setRange}
+        <DatePicker
+          placeholder="开始时间（可选）"
+          value={startDate}
+          onChange={setStartDate}
           format="YYYY-MM-DD"
+          disabledDate={(current) => !!(dueDate && current && current.isAfter(dueDate, 'day'))}
+        />
+        <DatePicker
+          placeholder="截止时间（可选）"
+          value={dueDate}
+          onChange={setDueDate}
+          format="YYYY-MM-DD"
+          disabledDate={(current) => !!(startDate && current && current.isBefore(startDate, 'day'))}
         />
       </Flex>
     </Modal>

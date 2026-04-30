@@ -1,16 +1,15 @@
 import { useRef, useState } from 'react';
 import {
-  Button, Card, Checkbox, DatePicker, Flex, Input,
-  List, Popconfirm, Progress, Tag, Typography,
+  Button, Card, Checkbox, DatePicker, Empty, Flex, Input,
+  Popconfirm, Progress, Tag, Typography,
 } from 'antd';
 import {
-  CalendarOutlined, DeleteOutlined,
-  PlusOutlined,
+  CalendarOutlined, DeleteOutlined, EditOutlined, FileTextOutlined,
 } from '@ant-design/icons';
 import PageHeader from '../../../components/PageHeader';
 import dayjs from 'dayjs';
 
-const { RangePicker } = DatePicker;
+const { TextArea } = Input;
 const LIST_TITLE_MAX_LENGTH = 40;
 
 function getDueDateTag(startDate, dueDate, hasPending) {
@@ -33,7 +32,10 @@ export default function TodoListDetail({ list, onBack, onBackHome, onUpdate, onD
   const [taskInput, setTaskInput] = useState('');
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState('');
+  const [editingDescId, setEditingDescId] = useState(null);
+  const [descDraft, setDescDraft] = useState('');
   const taskInputRef = useRef(null);
+  const descInputRef = useRef(null);
 
   const done = list.items.filter((i) => i.done).length;
   const total = list.items.length;
@@ -41,14 +43,46 @@ export default function TodoListDetail({ list, onBack, onBackHome, onUpdate, onD
   const percent = total > 0 ? Math.round((done / total) * 100) : 0;
   const dueSt = getDueDateTag(list.startDate, list.dueDate, pending > 0);
 
-  const addTask = () => {
-    const text = taskInput.trim();
-    if (!text) return;
+  const appendTasks = (rawText) => {
+    const taskTexts = rawText
+      .split(/\r?\n/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+    if (taskTexts.length === 0) return false;
+
+    const createdAt = Date.now();
     onUpdate({
-      items: [...list.items, { id: Date.now().toString(36), text, done: false, createdAt: Date.now() }],
+      items: [
+        ...list.items,
+        ...taskTexts.map((text, index) => ({
+          id: `${createdAt.toString(36)}-${index.toString(36)}`,
+          text,
+          done: false,
+          desc: '',
+          createdAt: createdAt + index,
+        })),
+      ],
     });
+    return true;
+  };
+
+  const addTask = () => {
+    const appended = appendTasks(taskInput);
+    if (!appended) return;
     setTaskInput('');
     setTimeout(() => taskInputRef.current?.focus(), 30);
+  };
+
+  const handleTaskPaste = (e) => {
+    const pastedText = e.clipboardData.getData('text');
+    if (!/[\r\n]/.test(pastedText)) return;
+    e.preventDefault();
+    const appended = appendTasks(pastedText);
+    if (appended) {
+      setTaskInput('');
+      setTimeout(() => taskInputRef.current?.focus(), 30);
+    }
   };
 
   const toggleTask = (taskId) => {
@@ -56,7 +90,45 @@ export default function TodoListDetail({ list, onBack, onBackHome, onUpdate, onD
   };
 
   const removeTask = (taskId) => {
+    if (editingDescId === taskId) {
+      setEditingDescId(null);
+      setDescDraft('');
+    }
     onUpdate({ items: list.items.filter((i) => i.id !== taskId) });
+  };
+
+  const updateTaskDesc = (taskId, desc) => {
+    onUpdate({
+      items: list.items.map((item) => (item.id === taskId ? { ...item, desc } : item)),
+    });
+  };
+
+  const openDescEditor = (item) => {
+    setEditingDescId(item.id);
+    setDescDraft(item.desc ?? '');
+    setTimeout(() => descInputRef.current?.focus({ cursor: 'end' }), 30);
+  };
+
+  const commitDesc = (taskId) => {
+    if (editingDescId !== taskId) return;
+    updateTaskDesc(taskId, descDraft.trim());
+    setEditingDescId(null);
+    setDescDraft('');
+  };
+
+  const updateStartDate = (value) => {
+    const nextStartDate = value ? value.format('YYYY-MM-DD') : null;
+    const shouldClearDueDate = nextStartDate && list.dueDate && dayjs(nextStartDate).isAfter(dayjs(list.dueDate), 'day');
+    onUpdate({
+      startDate: nextStartDate,
+      dueDate: shouldClearDueDate ? null : list.dueDate,
+    });
+  };
+
+  const updateDueDate = (value) => {
+    onUpdate({
+      dueDate: value ? value.format('YYYY-MM-DD') : null,
+    });
   };
 
   const commitTitle = () => {
@@ -118,20 +190,25 @@ export default function TodoListDetail({ list, onBack, onBackHome, onUpdate, onD
                 </Typography.Title>
               )}
               <Flex gap={16} wrap="wrap" align="center">
-                <RangePicker
+                <DatePicker
                   size="small"
-                  placeholder={['开始时间', '截止时间']}
-                  value={[
-                    list.startDate ? dayjs(list.startDate) : null,
-                    list.dueDate ? dayjs(list.dueDate) : null,
-                  ]}
-                  onChange={(range) => onUpdate({
-                    startDate: range?.[0] ? range[0].format('YYYY-MM-DD') : null,
-                    dueDate: range?.[1] ? range[1].format('YYYY-MM-DD') : null,
-                  })}
+                  placeholder="开始时间"
+                  value={list.startDate ? dayjs(list.startDate) : null}
+                  onChange={updateStartDate}
                   format="YYYY-MM-DD"
                   allowClear
                   variant="borderless"
+                  disabledDate={(current) => !!(list.dueDate && current && current.isAfter(dayjs(list.dueDate), 'day'))}
+                />
+                <DatePicker
+                  size="small"
+                  placeholder="截止时间"
+                  value={list.dueDate ? dayjs(list.dueDate) : null}
+                  onChange={updateDueDate}
+                  format="YYYY-MM-DD"
+                  allowClear
+                  variant="borderless"
+                  disabledDate={(current) => !!(list.startDate && current && current.isBefore(dayjs(list.startDate), 'day'))}
                 />
                 {dueSt && <Tag color={dueSt.color}>{dueSt.text}</Tag>}
               </Flex>
@@ -151,45 +228,82 @@ export default function TodoListDetail({ list, onBack, onBackHome, onUpdate, onD
           </Flex>
         </div>
 
-        <Flex gap={8} style={{ marginBottom: 4 }}>
-          <Input
-            ref={taskInputRef}
-            placeholder="新增任务，回车添加"
-            value={taskInput}
-            onChange={(e) => setTaskInput(e.target.value)}
-            onPressEnter={addTask}
-          />
-          <Button type="primary" icon={<PlusOutlined />} onClick={addTask}>
-            添加
-          </Button>
-        </Flex>
-
-        <List
-          className="todo-task-list"
-          dataSource={list.items}
-          locale={{ emptyText: '暂无任务，输入上方内容新增' }}
-          renderItem={(item) => (
-            <List.Item
-              actions={[
+        <div className="todo-task-list" role="list">
+          {list.items.map((item) => (
+            <div key={item.id} className="todo-task-item" role="listitem">
+              <div className="todo-task-main">
+                <Checkbox checked={item.done} onChange={() => toggleTask(item.id)} aria-label={`切换任务 ${item.text} 状态`} />
+                <div className="todo-task-content">
+                  <Typography.Text className={item.done ? 'todo-task-text todo-task-text--done' : 'todo-task-text'}>
+                    {item.text}
+                  </Typography.Text>
+                  {(editingDescId === item.id || item.desc) && (
+                    editingDescId === item.id ? (
+                      <TextArea
+                        ref={descInputRef}
+                        value={descDraft}
+                        className="todo-task-desc-input"
+                        placeholder="补充任务描述"
+                        autoSize={{ minRows: 2, maxRows: 5 }}
+                        onChange={(e) => setDescDraft(e.target.value)}
+                        onBlur={() => commitDesc(item.id)}
+                        onPressEnter={(e) => {
+                          if ((e.metaKey || e.ctrlKey) && !e.shiftKey) {
+                            e.preventDefault();
+                            commitDesc(item.id);
+                          }
+                        }}
+                      />
+                    ) : (
+                      <Typography.Paragraph className="todo-task-desc">
+                        {item.desc}
+                      </Typography.Paragraph>
+                    )
+                  )}
+                </div>
+              </div>
+              <div className="todo-task-actions">
+                <Button
+                  type="text"
+                  size="small"
+                  icon={item.desc ? <EditOutlined /> : <FileTextOutlined />}
+                  onClick={() => openDescEditor(item)}
+                  aria-label={item.desc ? '编辑描述' : '添加描述'}
+                  title={item.desc ? '编辑描述' : '添加描述'}
+                />
                 <Popconfirm
-                  key="del"
                   title="确认删除该任务？"
                   okText="删除"
                   cancelText="取消"
                   onConfirm={() => removeTask(item.id)}
                 >
-                  <Button type="text" danger size="small" icon={<DeleteOutlined />} />
-                </Popconfirm>,
-              ]}
-            >
-              <Checkbox checked={item.done} onChange={() => toggleTask(item.id)}>
-                <span style={item.done ? { textDecoration: 'line-through', opacity: 0.45 } : {}}>
-                  {item.text}
-                </span>
-              </Checkbox>
-            </List.Item>
-          )}
-        />
+                  <Button
+                    type="text"
+                    danger
+                    size="small"
+                    icon={<DeleteOutlined />}
+                    aria-label="删除任务"
+                    title="删除任务"
+                  />
+                </Popconfirm>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="todo-task-create-row">
+          <div className="todo-task-checkbox-slot" aria-hidden="true" />
+          <Input
+            ref={taskInputRef}
+            className="todo-task-create-input"
+            placeholder="新增任务，回车添加"
+            value={taskInput}
+            onChange={(e) => setTaskInput(e.target.value)}
+            onPaste={handleTaskPaste}
+            onPressEnter={addTask}
+            variant="borderless"
+          />
+        </div>
       </Card>
     </section>
   );
