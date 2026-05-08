@@ -1,0 +1,202 @@
+name: Release Build And Publish
+
+on:
+  release:
+    types:
+      - published
+
+permissions:
+  contents: write
+
+env:
+  NODE_VERSION: 20
+  RELEASE_TAG: ${{ github.event.release.tag_name }}
+  RELEASE_SYNC_BRANCH: ${{ vars.RELEASE_SYNC_BRANCH || github.event.repository.default_branch }}
+  ALIYUN_REGION_ID: ${{ vars.ALIYUN_REGION_ID }}
+  ALIYUN_OSS_BUCKET: ${{ vars.ALIYUN_OSS_BUCKET }}
+  ALIYUN_OSS_ENDPOINT: ${{ vars.ALIYUN_OSS_ENDPOINT }}
+  ALIYUN_OSS_PREFIX: ${{ vars.ALIYUN_OSS_PREFIX || 'developer-box/releases' }}
+  ALIYUN_CDN_URL_PREFIX: ${{ vars.ALIYUN_CDN_URL_PREFIX }}
+
+jobs:
+  sync-version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sync branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_SYNC_BRANCH }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Sync release version files
+        run: node scripts/release.mjs sync-version --tag "${RELEASE_TAG}"
+
+      - name: Commit synced version files
+        run: |
+          if git diff --quiet -- package.json src/version.ts; then
+            echo "No version file changes to commit."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json src/version.ts
+          git commit -m "chore: sync release version ${RELEASE_TAG}"
+          git push origin "HEAD:${RELEASE_SYNC_BRANCH}"
+
+  build:
+    name: Build ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows
+            runner: windows-latest
+            build_script: build:win
+          - platform: mac-arm64
+            runner: macos-14
+            build_script: build:mac
+
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ env.RELEASE_TAG }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: corepack pnpm install --frozen-lockfile
+
+      - name: Sync release version files
+        run: node scripts/release.mjs sync-version --tag "${RELEASE_TAG}"
+
+      - name: Build release package
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: corepack pnpm run ${{ matrix.build_script }}
+
+      - name: Collect release artifacts
+        run: node scripts/release.mjs collect-artifacts --source release --output release-assets
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.platform }}
+          path: release-assets/*
+          if-no-files-found: error
+
+  publish:
+    runs-on: ubuntu-latest
+    needs:
+      - sync-version
+      - build
+    steps:
+      - name: Validate required publish configuration
+        run: |
+          required_vars=(
+            ALIYUN_REGION_ID
+            ALIYUN_OSS_BUCKET
+            ALIYUN_OSS_ENDPOINT
+            ALIYUN_CDN_URL_PREFIX
+          )
+
+          for key in "${required_vars[@]}"; do
+            if [ -z "${!key}" ]; then
+              echo "Missing required repository variable: ${key}" >&2
+              exit 1
+            fi
+          done
+
+          if [ -z "${ALIYUN_ACCESS_KEY_ID}" ] || [ -z "${ALIYUN_ACCESS_KEY_SECRET}" ]; then
+            echo "Missing required repository secret: ALIYUN_ACCESS_KEY_ID or ALIYUN_ACCESS_KEY_SECRET" >&2
+            exit 1
+          fi
+        env:
+          ALIYUN_ACCESS_KEY_ID: ${{ secrets.ALIYUN_ACCESS_KEY_ID }}
+          ALIYUN_ACCESS_KEY_SECRET: ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          pattern: release-*
+          merge-multiple: true
+
+      - name: Generate update.json
+        run: node scripts/release.mjs write-update-json --tag "${RELEASE_TAG}" --event-file "${GITHUB_EVENT_PATH}" --output release-assets/update.json
+
+      - name: Install ossutil and aliyun cli
+        run: |
+          curl -fsSL "https://gosspublic.alicdn.com/ossutil/1.7.18/ossutil64" -o ossutil
+          chmod +x ossutil
+          sudo mv ossutil /usr/local/bin/ossutil
+
+          curl -fsSL "https://aliyuncli.alicdn.com/aliyun-cli-linux-latest-amd64.tgz" -o aliyun.tgz
+          tar -xzf aliyun.tgz
+          sudo mv aliyun /usr/local/bin/aliyun
+
+      - name: Upload files to OSS
+        env:
+          ALIYUN_ACCESS_KEY_ID: ${{ secrets.ALIYUN_ACCESS_KEY_ID }}
+          ALIYUN_ACCESS_KEY_SECRET: ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}
+        run: |
+          export OSS_CONFIG_FILE="${RUNNER_TEMP}/.ossutilconfig"
+          ossutil config \
+            -c "${OSS_CONFIG_FILE}" \
+            -e "${ALIYUN_OSS_ENDPOINT}" \
+            -i "${ALIYUN_ACCESS_KEY_ID}" \
+            -k "${ALIYUN_ACCESS_KEY_SECRET}" \
+            -L CH >/dev/null
+
+          prefix="${ALIYUN_OSS_PREFIX#/}"
+          prefix="${prefix%/}"
+          : > refresh-urls.txt
+
+          while IFS= read -r -d '' file_path; do
+            file_name="$(basename "${file_path}")"
+            object_key="${file_name}"
+            if [ -n "${prefix}" ]; then
+              object_key="${prefix}/${file_name}"
+            fi
+
+            ossutil cp -f -c "${OSS_CONFIG_FILE}" "${file_path}" "oss://${ALIYUN_OSS_BUCKET}/${object_key}"
+            echo "${ALIYUN_CDN_URL_PREFIX%/}/${object_key}" >> refresh-urls.txt
+          done < <(find release-assets -maxdepth 1 -type f -print0)
+
+          sort -u refresh-urls.txt -o refresh-urls.txt
+
+      - name: Refresh CDN cache
+        env:
+          ALIYUN_ACCESS_KEY_ID: ${{ secrets.ALIYUN_ACCESS_KEY_ID }}
+          ALIYUN_ACCESS_KEY_SECRET: ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}
+        run: |
+          aliyun configure set \
+            --mode AK \
+            --region "${ALIYUN_REGION_ID}" \
+            --access-key-id "${ALIYUN_ACCESS_KEY_ID}" \
+            --access-key-secret "${ALIYUN_ACCESS_KEY_SECRET}" >/dev/null
+
+          while IFS= read -r url; do
+            [ -n "${url}" ] || continue
+            aliyun cdn RefreshObjectCaches --ObjectPath "${url}" --ObjectType File
+          done < refresh-urls.txt

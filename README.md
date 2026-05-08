@@ -43,6 +43,60 @@ pnpm build
 - macOS：输出 zip（内含 `Developer Box.app`，解压后可直接运行）
 - Windows：输出单文件 portable exe（可直接双击运行，无安装向导）
 
+## GitHub Release 自动发布
+
+仓库已添加 `Release Build And Publish` 工作流：
+
+- 触发方式：发布 GitHub Release（`published`）
+- Tag 格式：`v0.0.1`
+- 自动同步：
+  - 更新 `src/version.ts`
+  - 更新 `package.json` 中的 `version`
+  - 构建 Windows `exe` 与 macOS Apple Silicon `zip`
+  - 生成 `update.json`
+  - 上传到阿里云 OSS
+  - 刷新对应 CDN 文件缓存
+
+### update.json 格式
+
+```json
+{
+  "version": "v0.0.1",
+  "versionCode": 1,
+  "notes": "来自 GitHub Release 内容，可为空"
+}
+```
+
+`versionCode` 按 `major * 10000 + minor * 100 + patch` 计算，例如：
+
+- `v0.0.1` -> `1`
+- `v1.2.3` -> `10203`
+
+### GitHub Secrets
+
+在仓库 `Settings -> Secrets and variables -> Actions -> Secrets` 中配置：
+
+- `ALIYUN_ACCESS_KEY_ID`：阿里云 AccessKey ID
+- `ALIYUN_ACCESS_KEY_SECRET`：阿里云 AccessKey Secret
+
+### GitHub Variables
+
+在仓库 `Settings -> Secrets and variables -> Actions -> Variables` 中配置：
+
+- `ALIYUN_REGION_ID`：阿里云地域，例如 `cn-hangzhou`
+- `ALIYUN_OSS_BUCKET`：OSS Bucket 名称
+- `ALIYUN_OSS_ENDPOINT`：OSS Endpoint，例如 `oss-cn-hangzhou.aliyuncs.com`
+- `ALIYUN_OSS_PREFIX`：上传目录前缀，可选，默认 `developer-box/releases`
+- `ALIYUN_CDN_URL_PREFIX`：CDN 对外访问前缀，例如 `https://download.example.com/developer-box/releases`
+- `RELEASE_SYNC_BRANCH`：版本文件自动回写分支，可选，默认仓库默认分支
+
+### 使用方式
+
+1. 确保以上 Secrets / Variables 已配置完成。
+2. 创建并推送符合格式的 tag，例如 `v0.0.2`。
+3. 在 GitHub 上基于该 tag 发布 Release。
+4. 工作流会自动完成版本同步、构建、上传和 CDN 刷新。
+
 ## 数据文件
 
 应用会在用户目录下自动创建并写入：
