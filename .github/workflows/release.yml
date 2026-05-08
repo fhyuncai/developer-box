@@ -141,7 +141,7 @@ jobs:
           merge-multiple: true
 
       - name: Generate update.json
-        run: node scripts/release.mjs write-update-json --tag "${RELEASE_TAG}" --event-file "${GITHUB_EVENT_PATH}" --output release-assets/update.json
+        run: node scripts/release.mjs write-update-json --tag "${RELEASE_TAG}" --event-file "${GITHUB_EVENT_PATH}" --output release-assets/update.json --artifacts-dir release-assets --download-base-url "${ALIYUN_CDN_URL_PREFIX}"
 
       - name: Upload files to OSS and refresh CDN
         env:

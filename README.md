@@ -63,7 +63,11 @@ pnpm build
 {
   "version": "v0.0.1",
   "versionCode": 1,
-  "notes": "来自 GitHub Release 内容，可为空"
+  "notes": "来自 GitHub Release 内容，可为空",
+  "download": {
+    "windows": "https://download.example.com/developer-box/releases/Developer%20Box%200.0.1.exe",
+    "macArm64": "https://download.example.com/developer-box/releases/Developer%20Box-0.0.1-arm64-mac.zip"
+  }
 }
 ```
 

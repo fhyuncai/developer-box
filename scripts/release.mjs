@@ -79,6 +79,44 @@ async function writeUpdateJson(tag, notes, outputPath) {
   await fs.writeFile(outputPath, `${JSON.stringify(payload, null, 2)}\n`);
 }
 
+async function buildDownloadLinks(artifactsDir, downloadBaseUrl) {
+  const entries = await fs.readdir(artifactsDir, { withFileTypes: true });
+  const download = {};
+
+  for (const entry of entries) {
+    if (!entry.isFile()) {
+      continue;
+    }
+
+    const extension = path.extname(entry.name).toLowerCase();
+    const url = `${downloadBaseUrl.replace(/\/$/, '')}/${encodeURIComponent(entry.name)}`;
+    if (extension === '.exe') {
+      download.windows = url;
+    } else if (extension === '.zip') {
+      download.macArm64 = url;
+    }
+  }
+
+  if (!download.windows || !download.macArm64) {
+    throw new Error(`Unable to determine Windows/macOS download links from artifacts in ${artifactsDir}`);
+  }
+
+  return download;
+}
+
+async function writeUpdateJsonWithDownloads(tag, notes, outputPath, artifactsDir, downloadBaseUrl) {
+  const { tag: normalizedTag, versionCode } = parseReleaseTag(tag);
+  const payload = {
+    version: normalizedTag,
+    versionCode,
+    notes: notes ?? '',
+    download: await buildDownloadLinks(artifactsDir, downloadBaseUrl),
+  };
+
+  await fs.mkdir(path.dirname(outputPath), { recursive: true });
+  await fs.writeFile(outputPath, `${JSON.stringify(payload, null, 2)}\n`);
+}
+
 async function readReleaseNotes(eventFilePath) {
   if (!eventFilePath) {
     return '';
@@ -132,7 +170,17 @@ async function main() {
       const notes = options['event-file']
         ? await readReleaseNotes(options['event-file'])
         : options.notes ?? '';
-      await writeUpdateJson(options.tag, notes, options.output ?? 'update.json');
+      if (options['artifacts-dir'] && options['download-base-url']) {
+        await writeUpdateJsonWithDownloads(
+          options.tag,
+          notes,
+          options.output ?? 'update.json',
+          options['artifacts-dir'],
+          options['download-base-url'],
+        );
+      } else {
+        await writeUpdateJson(options.tag, notes, options.output ?? 'update.json');
+      }
       break;
     }
     case 'collect-artifacts': {
