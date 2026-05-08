@@ -32,7 +32,10 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Sync release version files
-        run: node scripts/release.mjs sync-version --tag "${{ env.RELEASE_TAG }}"
+        shell: bash
+        env:
+          RELEASE_TAG_VALUE: ${{ env.RELEASE_TAG }}
+        run: node scripts/release.mjs sync-version --tag "$RELEASE_TAG_VALUE"
 
       - name: Commit synced version files
         run: |
@@ -56,10 +59,10 @@ jobs:
         include:
           - platform: windows
             runner: windows-latest
-            build_script: build:win
+            build_target: --win
           - platform: mac-arm64
             runner: macos-14
-            build_script: build:mac
+            build_target: --mac
 
     steps:
       - name: Checkout release tag
@@ -79,12 +82,17 @@ jobs:
         run: corepack pnpm install --frozen-lockfile
 
       - name: Sync release version files
-        run: node scripts/release.mjs sync-version --tag "${{ env.RELEASE_TAG }}"
+        shell: bash
+        env:
+          RELEASE_TAG_VALUE: ${{ env.RELEASE_TAG }}
+        run: node scripts/release.mjs sync-version --tag "$RELEASE_TAG_VALUE"
 
       - name: Build release package
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
-        run: corepack pnpm run ${{ matrix.build_script }} -- --publish never
+        run: |
+          corepack pnpm run build:renderer
+          corepack pnpm exec electron-builder ${{ matrix.build_target }} --publish never
 
       - name: Collect release artifacts
         run: node scripts/release.mjs collect-artifacts --source release --output release-assets
