@@ -93,8 +93,8 @@ pnpm build
 ### 使用方式
 
 1. 确保以上 Secrets / Variables 已配置完成。
-2. 创建并推送符合格式的 tag，例如 `v0.0.2`。
-3. 在 GitHub 上基于该 tag 发布 Release。
+2. 先准备好符合格式的 tag，例如 `v0.0.2`（可先本地推送 tag，或直接在 GitHub 发布 Release 时创建）。
+3. 在 GitHub 上发布该 tag 对应的 Release；工作流会在 Release `published` 时触发。
 4. 工作流会自动完成版本同步、构建、上传和 CDN 刷新。
 
 ## 数据文件

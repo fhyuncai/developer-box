@@ -33,9 +33,9 @@ function parseReleaseTag(rawTag) {
   }
 
   const tag = rawTag.startsWith('v') ? rawTag : `v${rawTag}`;
-  const match = /^v(\d+)\.(\d+)\.(\d+)(?:[-+][0-9A-Za-z.-]+)?$/.exec(tag);
+  const match = /^v(\d+)\.(\d+)\.(\d+)$/.exec(tag);
   if (!match) {
-    throw new Error(`Unsupported release tag format: ${rawTag}`);
+    throw new Error(`Unsupported release tag format: ${rawTag}. Expected format: v0.0.1`);
   }
 
   const [, major, minor, patch] = match;
