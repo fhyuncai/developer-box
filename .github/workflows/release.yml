@@ -143,6 +143,14 @@ jobs:
       - name: Generate update.json
         run: node scripts/release.mjs write-update-json --tag "${RELEASE_TAG}" --event-file "${GITHUB_EVENT_PATH}" --output release-assets/update.json --artifacts-dir release-assets --download-base-url "${ALIYUN_CDN_URL_PREFIX}"
 
+      - name: Upload release assets to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          files: release-assets/*
+          fail_on_unmatched_files: true
+          overwrite_files: true
+
       - name: Upload files to OSS and refresh CDN
         env:
           ALIYUN_ACCESS_KEY_ID: ${{ secrets.ALIYUN_ACCESS_KEY_ID }}

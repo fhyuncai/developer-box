@@ -54,6 +54,7 @@ pnpm build
   - 更新 `package.json` 中的 `version`
   - 构建 Windows `exe` 与 macOS Apple Silicon `zip`
   - 生成 `update.json`
+  - 将构建产物回传到对应 GitHub Release 资产
   - 上传到阿里云 OSS
   - 刷新对应 CDN 文件缓存
 
@@ -98,7 +99,7 @@ pnpm build
 1. 确保以上 Secrets / Variables 已配置完成。
 2. 先准备好符合格式的 tag，例如 `v0.0.2`（可先本地推送 tag，或直接在 GitHub 发布 Release 时创建）。
 3. 在 GitHub 上发布该 tag 对应的 Release；工作流会在 Release `published` 时触发。
-4. 工作流会自动完成版本同步、构建、上传和 CDN 刷新。
+4. 工作流会自动完成版本同步、构建、回传 GitHub Release 资产、上传和 CDN 刷新。
 
 ## 数据文件
 
