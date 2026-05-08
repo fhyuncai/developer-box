@@ -81,7 +81,7 @@ async function writeUpdateJson(tag, notes, outputPath) {
 
 function joinUrlPath(baseUrl, prefix = '') {
   const normalizedBaseUrl = baseUrl.replace(/\/+$/, '');
-  const normalizedPrefix = `${prefix}`.trim().replace(/^\/+|\/+$/g, '');
+  const normalizedPrefix = (prefix ?? '').trim().replace(/^\/+|\/+$/g, '');
   return normalizedPrefix ? `${normalizedBaseUrl}/${normalizedPrefix}` : normalizedBaseUrl;
 }
 
