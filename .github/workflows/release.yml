@@ -149,7 +149,7 @@ jobs:
           merge-multiple: true
 
       - name: Generate update.json
-        run: node scripts/release.mjs write-update-json --tag "${{ env.RELEASE_TAG }}" --event-file "${GITHUB_EVENT_PATH}" --output release-assets/update.json --artifacts-dir release-assets --download-base-url "${ALIYUN_CDN_URL_PREFIX}"
+        run: node scripts/release.mjs write-update-json --tag "${{ env.RELEASE_TAG }}" --event-file "${GITHUB_EVENT_PATH}" --output release-assets/update.json --artifacts-dir release-assets --download-base-url "${ALIYUN_CDN_URL_PREFIX}" --prefix "${ALIYUN_OSS_PREFIX}"
 
       - name: Upload release assets to GitHub Release
         uses: softprops/action-gh-release@v2
