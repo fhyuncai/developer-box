@@ -49,13 +49,13 @@ async function syncVersionFiles(tag, versionFilePath, packageFilePath) {
   const { tag: normalizedTag, version, versionCode } = parseReleaseTag(tag);
 
   const versionFile = await fs.readFile(versionFilePath, 'utf8');
+  if (!/export const VERSION = '.*?';/.test(versionFile) || !/export const VERSION_CODE = \d+;/.test(versionFile)) {
+    throw new Error(`Unable to locate version constants in: ${versionFilePath}`);
+  }
+
   const nextVersionFile = versionFile
     .replace(/export const VERSION = '.*?';/, `export const VERSION = '${normalizedTag}';`)
     .replace(/export const VERSION_CODE = \d+;/, `export const VERSION_CODE = ${versionCode};`);
-
-  if (nextVersionFile === versionFile) {
-    throw new Error(`Unable to update version file: ${versionFilePath}`);
-  }
 
   const packageJson = JSON.parse(await fs.readFile(packageFilePath, 'utf8'));
   packageJson.version = version;
