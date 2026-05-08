@@ -1,0 +1,166 @@
+name: Release Build And Publish
+
+on:
+  release:
+    types:
+      - published
+
+permissions:
+  contents: write
+
+env:
+  NODE_VERSION: 20
+  RELEASE_TAG: ${{ github.event.release.tag_name }}
+  RELEASE_SYNC_BRANCH: ${{ vars.RELEASE_SYNC_BRANCH || github.event.repository.default_branch }}
+  ALIYUN_OSS_BUCKET: ${{ vars.ALIYUN_OSS_BUCKET }}
+  ALIYUN_OSS_ENDPOINT: ${{ vars.ALIYUN_OSS_ENDPOINT }}
+  ALIYUN_OSS_PREFIX: ${{ vars.ALIYUN_OSS_PREFIX || 'developer-box/releases' }}
+  ALIYUN_CDN_URL_PREFIX: ${{ vars.ALIYUN_CDN_URL_PREFIX }}
+
+jobs:
+  sync-version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sync branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_SYNC_BRANCH }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Sync release version files
+        run: node scripts/release.mjs sync-version --tag "${RELEASE_TAG}"
+
+      - name: Commit synced version files
+        run: |
+          if git diff --quiet -- package.json src/version.ts; then
+            echo "No version file changes to commit."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json src/version.ts
+          git commit -m "chore: sync release version ${RELEASE_TAG}"
+          git push origin "HEAD:${RELEASE_SYNC_BRANCH}"
+
+  build:
+    name: Build ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows
+            runner: windows-latest
+            build_script: build:win
+          - platform: mac-arm64
+            runner: macos-14
+            build_script: build:mac
+
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ env.RELEASE_TAG }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: corepack pnpm install --frozen-lockfile
+
+      - name: Sync release version files
+        run: node scripts/release.mjs sync-version --tag "${RELEASE_TAG}"
+
+      - name: Build release package
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: corepack pnpm run ${{ matrix.build_script }}
+
+      - name: Collect release artifacts
+        run: node scripts/release.mjs collect-artifacts --source release --output release-assets
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.platform }}
+          path: release-assets/*
+          if-no-files-found: error
+
+  publish:
+    runs-on: ubuntu-latest
+    needs:
+      - sync-version
+      - build
+    steps:
+      - name: Validate required publish configuration
+        run: |
+          required_vars=(
+            ALIYUN_OSS_BUCKET
+            ALIYUN_OSS_ENDPOINT
+            ALIYUN_CDN_URL_PREFIX
+          )
+
+          for key in "${required_vars[@]}"; do
+            if [ -z "${!key}" ]; then
+              echo "Missing required repository variable: ${key}" >&2
+              exit 1
+            fi
+          done
+
+          if [ -z "${ALIYUN_ACCESS_KEY_ID}" ] || [ -z "${ALIYUN_ACCESS_KEY_SECRET}" ]; then
+            echo "Missing required repository secret: ALIYUN_ACCESS_KEY_ID or ALIYUN_ACCESS_KEY_SECRET" >&2
+            exit 1
+          fi
+        env:
+          ALIYUN_ACCESS_KEY_ID: ${{ secrets.ALIYUN_ACCESS_KEY_ID }}
+          ALIYUN_ACCESS_KEY_SECRET: ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4.1.3
+        with:
+          path: release-assets
+          pattern: release-*
+          merge-multiple: true
+
+      - name: Generate update.json
+        run: node scripts/release.mjs write-update-json --tag "${RELEASE_TAG}" --event-file "${GITHUB_EVENT_PATH}" --output release-assets/update.json --artifacts-dir release-assets --download-base-url "${ALIYUN_CDN_URL_PREFIX}"
+
+      - name: Upload release assets to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          files: release-assets/*
+          fail_on_unmatched_files: true
+          overwrite_files: true
+
+      - name: Upload files to OSS and refresh CDN
+        env:
+          ALIYUN_ACCESS_KEY_ID: ${{ secrets.ALIYUN_ACCESS_KEY_ID }}
+          ALIYUN_ACCESS_KEY_SECRET: ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}
+        run: |
+          python3 scripts/aliyun-release.py \
+            --artifacts-dir release-assets \
+            --bucket "${ALIYUN_OSS_BUCKET}" \
+            --endpoint "${ALIYUN_OSS_ENDPOINT}" \
+            --prefix "${ALIYUN_OSS_PREFIX}" \
+            --cdn-url-prefix "${ALIYUN_CDN_URL_PREFIX}" \
+            --access-key-id "${ALIYUN_ACCESS_KEY_ID}" \
+            --access-key-secret "${ALIYUN_ACCESS_KEY_SECRET}"
