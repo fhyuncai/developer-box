@@ -33,7 +33,9 @@ jobs:
 
       - name: Sync release version files
         shell: bash
-        run: node scripts/release.mjs sync-version --tag "$RELEASE_TAG"
+        env:
+          RELEASE_TAG_VALUE: ${{ env.RELEASE_TAG }}
+        run: node scripts/release.mjs sync-version --tag "$RELEASE_TAG_VALUE"
 
       - name: Commit synced version files
         run: |
@@ -80,7 +82,10 @@ jobs:
         run: corepack pnpm install --frozen-lockfile
 
       - name: Sync release version files
-        run: node scripts/release.mjs sync-version --tag "${{ env.RELEASE_TAG }}"
+        shell: bash
+        env:
+          RELEASE_TAG_VALUE: ${{ env.RELEASE_TAG }}
+        run: node scripts/release.mjs sync-version --tag "$RELEASE_TAG_VALUE"
 
       - name: Build release package
         env:
