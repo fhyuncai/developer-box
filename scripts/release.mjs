@@ -33,7 +33,7 @@ function parseReleaseTag(rawTag) {
   }
 
   const tag = rawTag.startsWith('v') ? rawTag : `v${rawTag}`;
-  const match = /^v(\d+)\.(\d+)\.(\d+)$/.exec(tag);
+  const match = /^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.exec(tag);
   if (!match) {
     throw new Error(`Unsupported release tag format: ${rawTag}. Expected format: v0.0.1`);
   }
@@ -49,13 +49,16 @@ async function syncVersionFiles(tag, versionFilePath, packageFilePath) {
   const { tag: normalizedTag, version, versionCode } = parseReleaseTag(tag);
 
   const versionFile = await fs.readFile(versionFilePath, 'utf8');
-  if (!/export const VERSION = '[^']+';/.test(versionFile) || !/export const VERSION_CODE = \d+;/.test(versionFile)) {
+  if (
+    !/export const VERSION\s*=\s*['"][^'"]+['"]\s*;/.test(versionFile)
+    || !/export const VERSION_CODE\s*=\s*\d+\s*;/.test(versionFile)
+  ) {
     throw new Error(`Unable to locate version constants in: ${versionFilePath}`);
   }
 
   const nextVersionFile = versionFile
-    .replace(/export const VERSION = '[^']+';/, `export const VERSION = '${normalizedTag}';`)
-    .replace(/export const VERSION_CODE = \d+;/, `export const VERSION_CODE = ${versionCode};`);
+    .replace(/export const VERSION\s*=\s*['"][^'"]+['"]\s*;/, `export const VERSION = '${normalizedTag}';`)
+    .replace(/export const VERSION_CODE\s*=\s*\d+\s*;/, `export const VERSION_CODE = ${versionCode};`);
 
   const packageJson = JSON.parse(await fs.readFile(packageFilePath, 'utf8'));
   packageJson.version = version;

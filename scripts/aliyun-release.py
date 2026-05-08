@@ -25,6 +25,14 @@ def normalize_endpoint(endpoint: str) -> str:
     return endpoint.removeprefix("https://").removeprefix("http://").rstrip("/")
 
 
+def detect_content_type(file_name: str) -> str:
+    if file_name.endswith(".exe"):
+        return "application/vnd.microsoft.portable-executable"
+    if file_name.endswith(".zip"):
+        return "application/zip"
+    return mimetypes.guess_type(file_name)[0] or "application/octet-stream"
+
+
 def upload_to_oss(
     *,
     access_key_id: str,
@@ -35,7 +43,7 @@ def upload_to_oss(
     file_path: Path,
 ) -> None:
     host = f"{bucket}.{normalize_endpoint(endpoint)}"
-    content_type = mimetypes.guess_type(file_path.name)[0] or "application/octet-stream"
+    content_type = detect_content_type(file_path.name)
     date = formatdate(usegmt=True)
     canonical_resource = f"/{bucket}/{object_key}"
     string_to_sign = f"PUT\n\n{content_type}\n{date}\n{canonical_resource}"
