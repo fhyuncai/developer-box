@@ -549,6 +549,25 @@ textarea,
   overflow-x: hidden;
 }
 
+.json-export-content {
+  max-height: 65vh;
+  overflow: auto;
+  border: 1px solid var(--ant-color-border-secondary, #efefef);
+  border-radius: 8px;
+  background: rgba(128, 128, 128, 0.04);
+  padding: 12px;
+
+  pre {
+    margin: 0;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-all;
+    user-select: text;
+  }
+}
+
 .json-tree,
 .json-tree * {
   -webkit-user-select: text;

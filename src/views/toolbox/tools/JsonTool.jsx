@@ -1,6 +1,6 @@
-import { useMemo, useRef, useState } from 'react';
-import { Button, Flex, Input, Modal, Space, Tag, Tooltip, Tree, Typography } from 'antd';
-import { ColumnHeightOutlined, VerticalAlignMiddleOutlined, UpOutlined, DownOutlined, ApartmentOutlined } from '@ant-design/icons';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Button, Dropdown, Flex, Input, Modal, Space, Tag, Tooltip, Tree, Typography, message } from 'antd';
+import { ApartmentOutlined, ColumnHeightOutlined, DeleteOutlined, DownOutlined, ExportOutlined, UpOutlined, VerticalAlignMiddleOutlined } from '@ant-design/icons';
 
 const { TextArea } = Input;
 
@@ -34,8 +34,119 @@ const isJsonString = (str) => {
   return false;
 };
 
+const cloneJsonValue = (value) => JSON.parse(JSON.stringify(value));
+
+const parsePathSegments = (path) => {
+  const segments = [];
+  let index = 1;
+
+  while (index < path.length) {
+    const char = path[index];
+
+    if (char === '.') {
+      index += 1;
+      let token = '';
+      while (index < path.length && path[index] !== '.' && path[index] !== '[') {
+        token += path[index];
+        index += 1;
+      }
+      if (token) segments.push(token);
+      continue;
+    }
+
+    if (char === '[') {
+      const endIndex = path.indexOf(']', index);
+      if (endIndex === -1) break;
+      const token = path.slice(index + 1, endIndex);
+      const arrayIndex = Number(token);
+      segments.push(Number.isNaN(arrayIndex) ? token : arrayIndex);
+      index = endIndex + 1;
+      continue;
+    }
+
+    index += 1;
+  }
+
+  return segments;
+};
+
+const getParentPath = (path) => {
+  if (!path || path === '$') return '$';
+  if (path.endsWith(']')) {
+    return path.replace(/\[[^\]]+\]$/, '') || '$';
+  }
+  return path.replace(/\.[^.]+$/, '') || '$';
+};
+
+const deleteNodeByPath = (value, path) => {
+  if (path === '$') return value;
+
+  const nextValue = cloneJsonValue(value);
+  const segments = parsePathSegments(path);
+  if (segments.length === 0) return nextValue;
+
+  let cursor = nextValue;
+  for (let index = 0; index < segments.length - 1; index += 1) {
+    cursor = cursor?.[segments[index]];
+    if (cursor === undefined) return nextValue;
+  }
+
+  const targetKey = segments[segments.length - 1];
+  if (Array.isArray(cursor) && typeof targetKey === 'number') {
+    cursor.splice(targetKey, 1);
+  } else if (cursor && typeof cursor === 'object') {
+    delete cursor[targetKey];
+  }
+
+  return nextValue;
+};
+
+const stringifyBrief = (value) => {
+  if (value === null) return 'null';
+  if (typeof value === 'string') return `"${value}"`;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (Array.isArray(value)) return `[${value.length}]`;
+  if (typeof value === 'object') return `{${Object.keys(value).length}}`;
+  return String(value);
+};
+
+const TREE_MODAL_BODY_STYLE = {
+  maxHeight: 'calc(100dvh - 88px)',
+  overflowY: 'auto',
+  overflowX: 'hidden',
+};
+
+const buildNodeContextMenu = ({ nodeKey, jsonParsable, onParseJson, onDeleteNode }) => {
+  const items = [];
+
+  if (jsonParsable) {
+    items.push({ key: 'parse', label: '解析 JSON', icon: <ApartmentOutlined /> });
+  }
+
+  if (onDeleteNode && nodeKey !== '$') {
+    items.push({ key: 'delete', label: '删除节点', icon: <DeleteOutlined />, danger: true });
+  }
+
+  if (items.length === 0) return null;
+
+  return {
+    items,
+    onClick: ({ key, domEvent }) => {
+      domEvent.stopPropagation();
+      if (key === 'parse') onParseJson?.();
+      if (key === 'delete') onDeleteNode?.(nodeKey);
+    },
+  };
+};
+
 // ---- Nested JSON tree rendered inside modal ----
 function NestedJsonTree({ value }) {
+  const [treeValue, setTreeValue] = useState(value);
+
+  useEffect(() => {
+    setTreeValue(value);
+  }, [value]);
+
   const buildNode = (val, path, label) => {
     const type = val === null ? 'null' : Array.isArray(val) ? 'array' : typeof val;
     const node = { key: path, meta: { label, value: val, type }, title: label, children: [] };
@@ -49,15 +160,7 @@ function NestedJsonTree({ value }) {
     return node;
   };
 
-  const brief = (val) => {
-    if (val === null) return 'null';
-    if (Array.isArray(val)) return `[${val.length}]`;
-    if (typeof val === 'object') return `{${Object.keys(val).length}}`;
-    if (typeof val === 'string') return `"${val}"`;
-    return String(val);
-  };
-
-  const treeData = useMemo(() => [buildNode(value, '$', '$')], [value]);
+  const treeData = useMemo(() => [buildNode(treeValue, '$', '$')], [treeValue]);
 
   const allKeys = useMemo(() => {
     const keys = [];
@@ -67,6 +170,17 @@ function NestedJsonTree({ value }) {
   }, [treeData]);
 
   const [expandedKeys, setExpandedKeys] = useState(() => allKeys);
+
+  useEffect(() => {
+    setExpandedKeys(allKeys);
+  }, [allKeys]);
+
+  const handleDeleteNode = (path) => {
+    if (path === '$') return;
+
+    const nextValue = deleteNodeByPath(treeValue, path);
+    setTreeValue(nextValue);
+  };
 
   const handleSelect = (keys, { node }) => {
     const type = node.meta?.type;
@@ -88,7 +202,7 @@ function NestedJsonTree({ value }) {
       titleRender={(node) => {
         const type = node.meta?.type || 'unknown';
         const isExpandable = type === 'object' || type === 'array';
-        const valBrief = brief(node.meta?.value);
+        const valBrief = stringifyBrief(node.meta?.value);
         const jsonParsable = type === 'string' && isJsonString(node.meta?.value);
         return (
           <NestedNodeTitle
@@ -97,6 +211,7 @@ function NestedJsonTree({ value }) {
             valBrief={valBrief}
             isExpandable={isExpandable}
             jsonParsable={jsonParsable}
+            onDeleteNode={handleDeleteNode}
           />
         );
       }}
@@ -104,7 +219,7 @@ function NestedJsonTree({ value }) {
   );
 }
 
-function NestedNodeTitle({ node, type, valBrief, jsonParsable }) {
+function NestedNodeTitle({ node, type, valBrief, jsonParsable, onDeleteNode }) {
   const [subVisible, setSubVisible] = useState(false);
   const subParsed = useMemo(() => {
     if (!jsonParsable) return null;
@@ -115,12 +230,12 @@ function NestedNodeTitle({ node, type, valBrief, jsonParsable }) {
   const savedScrollRef = useRef(0);
 
   const handleOpen = (e) => {
-    e.stopPropagation();
+    e?.stopPropagation?.();
     savedScrollRef.current = document.querySelector('.page-wrap')?.scrollTop ?? 0;
     setSubVisible(true);
   };
 
-  return (
+  const nodeContent = (
     <span className="json-tree-node" title={path}>
       <span className="json-tree-key">{node.meta?.label}</span>
       <Tag className="json-tree-type">{type}</Tag>
@@ -136,6 +251,30 @@ function NestedNodeTitle({ node, type, valBrief, jsonParsable }) {
         </Tooltip>
       )}
       <span className="json-tree-value" style={{ color: TYPE_VALUE_COLOR[type] }}>{valBrief}</span>
+    </span>
+  );
+
+  const nodeMenu = buildNodeContextMenu({
+    nodeKey: node.key,
+    jsonParsable,
+    onParseJson: handleOpen,
+    onDeleteNode,
+  });
+
+  const nodeWithContextMenu = nodeMenu
+    ? (
+      <Dropdown
+        trigger={['contextMenu']}
+        menu={nodeMenu}
+      >
+        {nodeContent}
+      </Dropdown>
+    )
+    : nodeContent;
+
+  return (
+    <>
+      {nodeWithContextMenu}
       {subParsed !== null && (
         <Modal
           title={`"${path}" JSON 解析`}
@@ -143,7 +282,8 @@ function NestedNodeTitle({ node, type, valBrief, jsonParsable }) {
           onCancel={() => setSubVisible(false)}
           footer={null}
           width="90%"
-          styles={{ body: { height: 'calc(90vh - 140px)', overflowY: 'auto', overflowX: 'hidden' } }}
+          style={{ top: 16 }}
+          styles={{ body: TREE_MODAL_BODY_STYLE }}
           afterClose={() => {
             const el = document.querySelector('.page-wrap');
             if (el) el.scrollTop = savedScrollRef.current;
@@ -153,7 +293,7 @@ function NestedNodeTitle({ node, type, valBrief, jsonParsable }) {
           <NestedJsonTree value={subParsed} />
         </Modal>
       )}
-    </span>
+    </>
   );
 }
 
@@ -166,6 +306,7 @@ export default function JsonTool() {
   const [selectedKey, setSelectedKey] = useState(null);
   const [searchText, setSearchText] = useState('');
   const [activeMatchIndex, setActiveMatchIndex] = useState(-1);
+  const [exportVisible, setExportVisible] = useState(false);
   const [modalState, setModalState] = useState({ visible: false, value: null, title: '' });
 
   const treeRef = useRef(null);
@@ -194,15 +335,6 @@ export default function JsonTool() {
     if (value === null) return 'null';
     if (Array.isArray(value)) return 'array';
     return typeof value;
-  };
-
-  const stringifyBrief = (value) => {
-    const type = getType(value);
-    if (type === 'string') return `"${value}"`;
-    if (type === 'number' || type === 'boolean' || type === 'null') return String(value);
-    if (type === 'array') return `[${value.length}]`;
-    if (type === 'object') return `{${Object.keys(value).length}}`;
-    return String(value);
   };
 
   const buildTreeNode = (value, path, label) => {
@@ -313,6 +445,22 @@ export default function JsonTool() {
     );
   };
 
+  const exportJsonText = useMemo(() => {
+    if (parsed === null) return '';
+    return JSON.stringify(parsed, null, 2);
+  }, [parsed]);
+
+  const copyExportJson = async () => {
+    if (!exportJsonText) return;
+
+    try {
+      await navigator.clipboard.writeText(exportJsonText);
+      message.success('已复制格式化 JSON');
+    } catch (error) {
+      message.error(error?.message || '复制失败');
+    }
+  };
+
   const parseJson = () => {
     setError('');
     try {
@@ -384,6 +532,19 @@ export default function JsonTool() {
   const expandAll = () => setExpandedKeys(allKeys);
   const collapseAll = () => setExpandedKeys([]);
 
+  const deleteParsedNode = (path) => {
+    if (parsed === null || path === '$') return;
+
+    const nextParsed = deleteNodeByPath(parsed, path);
+    const nextTree = [buildTreeNode(nextParsed, '$', '$')];
+
+    setParsed(nextParsed);
+    setInput(JSON.stringify(nextParsed, null, 2));
+    setExpandedKeys(collectKeys(nextTree));
+    setSelectedKey(getParentPath(path));
+    setActiveMatchIndex(-1);
+  };
+
   const searchAndLocate = () => {
     if (!normalizedKeyword || matchKeys.length === 0) return;
     locateMatchByIndex(0);
@@ -448,6 +609,14 @@ export default function JsonTool() {
                   aria-label="全部收起"
                 />
               </Tooltip>
+              <Tooltip title="导出 JSON">
+                <Button
+                  shape="circle"
+                  icon={<ExportOutlined />}
+                  onClick={() => setExportVisible(true)}
+                  aria-label="导出 JSON"
+                />
+              </Tooltip>
             </Space>
             <Space wrap>
               {searchText.length > 0 &&
@@ -510,7 +679,13 @@ export default function JsonTool() {
                 const isActiveHit = selectedKey === node.key && matchKeys.includes(node.key);
                 const isJsonStr = valueType === 'string' && isJsonString(node.meta?.value);
                 const path = formatPath(node.key);
-                return (
+                const openNodeJson = () => {
+                  try {
+                    const subVal = JSON.parse(node.meta.value);
+                    openModal(subVal, `"${path}" JSON 解析`);
+                  } catch {}
+                };
+                const nodeContent = (
                   <span
                     className={`json-tree-node ${isActiveHit ? 'json-tree-node--active-hit' : ''}`}
                     title={path}
@@ -526,10 +701,7 @@ export default function JsonTool() {
                           className="json-tree-parse-btn"
                           onClick={(e) => {
                             e.stopPropagation();
-                            try {
-                              const subVal = JSON.parse(node.meta.value);
-                              openModal(subVal, `"${path}" JSON 解析`);
-                            } catch {}
+                            openNodeJson();
                           }}
                         />
                       </Tooltip>
@@ -539,6 +711,24 @@ export default function JsonTool() {
                     </span>
                   </span>
                 );
+
+                const nodeMenu = buildNodeContextMenu({
+                  nodeKey: node.key,
+                  jsonParsable: isJsonStr,
+                  onParseJson: openNodeJson,
+                  onDeleteNode: deleteParsedNode,
+                });
+
+                if (!nodeMenu) return nodeContent;
+
+                return (
+                  <Dropdown
+                    trigger={['contextMenu']}
+                    menu={nodeMenu}
+                  >
+                    {nodeContent}
+                  </Dropdown>
+                );
               }}
             />
           </div>
@@ -546,12 +736,31 @@ export default function JsonTool() {
       )}
 
       <Modal
+        title="导出 JSON"
+        open={exportVisible}
+        onCancel={() => setExportVisible(false)}
+        centered
+        footer={[
+          <Button key="copy" type="primary" onClick={copyExportJson}>
+            复制
+          </Button>,
+        ]}
+        width={860}
+        destroyOnHidden
+      >
+        <div className="json-export-content">
+          <pre>{exportJsonText}</pre>
+        </div>
+      </Modal>
+
+      <Modal
         title={modalState.title}
         open={modalState.visible}
         onCancel={closeModal}
         footer={null}
         width="90%"
-        styles={{ body: { height: 'calc(90vh - 140px)', overflowY: 'auto', overflowX: 'hidden' } }}
+        style={{ top: 16 }}
+        styles={{ body: TREE_MODAL_BODY_STYLE }}
         focusTriggerAfterClose={false}
         destroyOnHidden
       >
