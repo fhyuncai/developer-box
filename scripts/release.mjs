@@ -79,9 +79,16 @@ async function writeUpdateJson(tag, notes, outputPath) {
   await fs.writeFile(outputPath, `${JSON.stringify(payload, null, 2)}\n`);
 }
 
-async function buildDownloadLinks(artifactsDir, downloadBaseUrl) {
+function joinUrlPath(baseUrl, prefix = '') {
+  const normalizedBaseUrl = baseUrl.replace(/\/+$/, '');
+  const normalizedPrefix = (prefix ?? '').trim().replace(/^\/+|\/+$/g, '');
+  return normalizedPrefix ? `${normalizedBaseUrl}/${normalizedPrefix}` : normalizedBaseUrl;
+}
+
+async function buildDownloadLinks(artifactsDir, downloadBaseUrl, prefix) {
   const entries = await fs.readdir(artifactsDir, { withFileTypes: true });
   const download = {};
+  const downloadRootUrl = joinUrlPath(downloadBaseUrl, prefix);
 
   for (const entry of entries) {
     if (!entry.isFile()) {
@@ -89,7 +96,7 @@ async function buildDownloadLinks(artifactsDir, downloadBaseUrl) {
     }
 
     const extension = path.extname(entry.name).toLowerCase();
-    const url = `${downloadBaseUrl.replace(/\/$/, '')}/${encodeURIComponent(entry.name)}`;
+    const url = `${downloadRootUrl}/${encodeURIComponent(entry.name)}`;
     if (extension === '.exe') {
       download.windows = url;
     } else if (extension === '.zip') {
@@ -104,13 +111,13 @@ async function buildDownloadLinks(artifactsDir, downloadBaseUrl) {
   return download;
 }
 
-async function writeUpdateJsonWithDownloads(tag, notes, outputPath, artifactsDir, downloadBaseUrl) {
+async function writeUpdateJsonWithDownloads(tag, notes, outputPath, artifactsDir, downloadBaseUrl, prefix) {
   const { tag: normalizedTag, versionCode } = parseReleaseTag(tag);
   const payload = {
     version: normalizedTag,
     versionCode,
     notes: notes ?? '',
-    download: await buildDownloadLinks(artifactsDir, downloadBaseUrl),
+    download: await buildDownloadLinks(artifactsDir, downloadBaseUrl, prefix),
   };
 
   await fs.mkdir(path.dirname(outputPath), { recursive: true });
@@ -177,6 +184,7 @@ async function main() {
           options.output ?? 'update.json',
           options['artifacts-dir'],
           options['download-base-url'],
+          options.prefix,
         );
       } else {
         await writeUpdateJson(options.tag, notes, options.output ?? 'update.json');
