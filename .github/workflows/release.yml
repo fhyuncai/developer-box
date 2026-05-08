@@ -159,7 +159,7 @@ jobs:
           fail_on_unmatched_files: true
           overwrite_files: true
 
-      - name: Upload files to OSS and refresh CDN
+      - name: Upload files to OSS
         env:
           ALIYUN_ACCESS_KEY_ID: ${{ secrets.ALIYUN_ACCESS_KEY_ID }}
           ALIYUN_ACCESS_KEY_SECRET: ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}
@@ -169,6 +169,5 @@ jobs:
             --bucket "${ALIYUN_OSS_BUCKET}" \
             --endpoint "${ALIYUN_OSS_ENDPOINT}" \
             --prefix "${ALIYUN_OSS_PREFIX}" \
-            --cdn-url-prefix "${ALIYUN_CDN_URL_PREFIX}" \
             --access-key-id "${ALIYUN_ACCESS_KEY_ID}" \
             --access-key-secret "${ALIYUN_ACCESS_KEY_SECRET}"

@@ -56,7 +56,6 @@ pnpm build
   - 生成 `update.json`
   - 将构建产物回传到对应 GitHub Release 资产
   - 上传到阿里云 OSS
-  - 刷新对应 CDN 文件缓存
 
 ### update.json 格式
 
@@ -91,7 +90,7 @@ pnpm build
 - `ALIYUN_OSS_BUCKET`：OSS Bucket 名称
 - `ALIYUN_OSS_ENDPOINT`：OSS Endpoint，例如 `oss-cn-hangzhou.aliyuncs.com`
 - `ALIYUN_OSS_PREFIX`：上传目录前缀，可选，默认 `developer-box/releases`
-- `ALIYUN_CDN_URL_PREFIX`：CDN 对外访问目录前缀（工作流会自动追加文件名），例如 `https://download.example.com/developer-box/releases`
+- `ALIYUN_CDN_URL_PREFIX`：对外下载地址前缀（工作流会自动追加文件名，用于生成 `update.json` 中的下载链接），例如 `https://download.example.com/developer-box/releases`
 - `RELEASE_SYNC_BRANCH`：版本文件自动回写分支，可选，默认仓库默认分支
 
 ### 使用方式
@@ -99,7 +98,7 @@ pnpm build
 1. 确保以上 Secrets / Variables 已配置完成。
 2. 先准备好符合格式的 tag，例如 `v0.0.2`（可先本地推送 tag，或直接在 GitHub 发布 Release 时创建）。
 3. 在 GitHub 上发布该 tag 对应的 Release；工作流会在 Release `published` 时触发。
-4. 工作流会自动完成版本同步、构建、回传 GitHub Release 资产、上传和 CDN 刷新。
+4. 工作流会自动完成版本同步、构建、回传 GitHub Release 资产与上传。
 
 ## 数据文件
 
