@@ -14,7 +14,7 @@ env:
   RELEASE_SYNC_BRANCH: ${{ vars.RELEASE_SYNC_BRANCH || github.event.repository.default_branch }}
   ALIYUN_OSS_BUCKET: ${{ vars.ALIYUN_OSS_BUCKET }}
   ALIYUN_OSS_ENDPOINT: ${{ vars.ALIYUN_OSS_ENDPOINT }}
-  ALIYUN_OSS_PREFIX: ${{ vars.ALIYUN_OSS_PREFIX || 'developer-box/releases' }}
+  ALIYUN_OSS_PREFIX: ${{ vars.ALIYUN_OSS_PREFIX || 'release' }}
   ALIYUN_CDN_URL_PREFIX: ${{ vars.ALIYUN_CDN_URL_PREFIX }}
 
 jobs:
