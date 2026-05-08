@@ -49,12 +49,12 @@ async function syncVersionFiles(tag, versionFilePath, packageFilePath) {
   const { tag: normalizedTag, version, versionCode } = parseReleaseTag(tag);
 
   const versionFile = await fs.readFile(versionFilePath, 'utf8');
-  if (!/export const VERSION = '.*?';/.test(versionFile) || !/export const VERSION_CODE = \d+;/.test(versionFile)) {
+  if (!/export const VERSION = '[^']+';/.test(versionFile) || !/export const VERSION_CODE = \d+;/.test(versionFile)) {
     throw new Error(`Unable to locate version constants in: ${versionFilePath}`);
   }
 
   const nextVersionFile = versionFile
-    .replace(/export const VERSION = '.*?';/, `export const VERSION = '${normalizedTag}';`)
+    .replace(/export const VERSION = '[^']+';/, `export const VERSION = '${normalizedTag}';`)
     .replace(/export const VERSION_CODE = \d+;/, `export const VERSION_CODE = ${versionCode};`);
 
   const packageJson = JSON.parse(await fs.readFile(packageFilePath, 'utf8'));
@@ -128,7 +128,7 @@ async function main() {
     case 'write-update-json': {
       const notes = options['event-file']
         ? await readReleaseNotes(options['event-file'])
-        : (options.notes ?? '');
+        : options.notes ?? '';
       await writeUpdateJson(options.tag, notes, options.output ?? 'update.json');
       break;
     }

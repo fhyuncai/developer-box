@@ -83,11 +83,10 @@ pnpm build
 
 在仓库 `Settings -> Secrets and variables -> Actions -> Variables` 中配置：
 
-- `ALIYUN_REGION_ID`：阿里云地域，例如 `cn-hangzhou`
 - `ALIYUN_OSS_BUCKET`：OSS Bucket 名称
 - `ALIYUN_OSS_ENDPOINT`：OSS Endpoint，例如 `oss-cn-hangzhou.aliyuncs.com`
 - `ALIYUN_OSS_PREFIX`：上传目录前缀，可选，默认 `developer-box/releases`
-- `ALIYUN_CDN_URL_PREFIX`：CDN 对外访问前缀，例如 `https://download.example.com/developer-box/releases`
+- `ALIYUN_CDN_URL_PREFIX`：CDN 对外访问目录前缀（工作流会自动追加文件名），例如 `https://download.example.com/developer-box/releases`
 - `RELEASE_SYNC_BRANCH`：版本文件自动回写分支，可选，默认仓库默认分支
 
 ### 使用方式

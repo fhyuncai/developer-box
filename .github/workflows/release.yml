@@ -12,7 +12,6 @@ env:
   NODE_VERSION: 20
   RELEASE_TAG: ${{ github.event.release.tag_name }}
   RELEASE_SYNC_BRANCH: ${{ vars.RELEASE_SYNC_BRANCH || github.event.repository.default_branch }}
-  ALIYUN_REGION_ID: ${{ vars.ALIYUN_REGION_ID }}
   ALIYUN_OSS_BUCKET: ${{ vars.ALIYUN_OSS_BUCKET }}
   ALIYUN_OSS_ENDPOINT: ${{ vars.ALIYUN_OSS_ENDPOINT }}
   ALIYUN_OSS_PREFIX: ${{ vars.ALIYUN_OSS_PREFIX || 'developer-box/releases' }}
@@ -106,7 +105,6 @@ jobs:
       - name: Validate required publish configuration
         run: |
           required_vars=(
-            ALIYUN_REGION_ID
             ALIYUN_OSS_BUCKET
             ALIYUN_OSS_ENDPOINT
             ALIYUN_CDN_URL_PREFIX
@@ -145,58 +143,16 @@ jobs:
       - name: Generate update.json
         run: node scripts/release.mjs write-update-json --tag "${RELEASE_TAG}" --event-file "${GITHUB_EVENT_PATH}" --output release-assets/update.json
 
-      - name: Install ossutil and aliyun cli
-        run: |
-          curl -fsSL "https://gosspublic.alicdn.com/ossutil/1.7.18/ossutil64" -o ossutil
-          chmod +x ossutil
-          sudo mv ossutil /usr/local/bin/ossutil
-
-          curl -fsSL "https://aliyuncli.alicdn.com/aliyun-cli-linux-latest-amd64.tgz" -o aliyun.tgz
-          tar -xzf aliyun.tgz
-          sudo mv aliyun /usr/local/bin/aliyun
-
-      - name: Upload files to OSS
+      - name: Upload files to OSS and refresh CDN
         env:
           ALIYUN_ACCESS_KEY_ID: ${{ secrets.ALIYUN_ACCESS_KEY_ID }}
           ALIYUN_ACCESS_KEY_SECRET: ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}
         run: |
-          export OSS_CONFIG_FILE="${RUNNER_TEMP}/.ossutilconfig"
-          ossutil config \
-            -c "${OSS_CONFIG_FILE}" \
-            -e "${ALIYUN_OSS_ENDPOINT}" \
-            -i "${ALIYUN_ACCESS_KEY_ID}" \
-            -k "${ALIYUN_ACCESS_KEY_SECRET}" \
-            -L CH >/dev/null
-
-          prefix="${ALIYUN_OSS_PREFIX#/}"
-          prefix="${prefix%/}"
-          : > refresh-urls.txt
-
-          while IFS= read -r -d '' file_path; do
-            file_name="$(basename "${file_path}")"
-            object_key="${file_name}"
-            if [ -n "${prefix}" ]; then
-              object_key="${prefix}/${file_name}"
-            fi
-
-            ossutil cp -f -c "${OSS_CONFIG_FILE}" "${file_path}" "oss://${ALIYUN_OSS_BUCKET}/${object_key}"
-            echo "${ALIYUN_CDN_URL_PREFIX%/}/${object_key}" >> refresh-urls.txt
-          done < <(find release-assets -maxdepth 1 -type f -print0)
-
-          sort -u refresh-urls.txt -o refresh-urls.txt
-
-      - name: Refresh CDN cache
-        env:
-          ALIYUN_ACCESS_KEY_ID: ${{ secrets.ALIYUN_ACCESS_KEY_ID }}
-          ALIYUN_ACCESS_KEY_SECRET: ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}
-        run: |
-          aliyun configure set \
-            --mode AK \
-            --region "${ALIYUN_REGION_ID}" \
+          python3 scripts/aliyun-release.py \
+            --artifacts-dir release-assets \
+            --bucket "${ALIYUN_OSS_BUCKET}" \
+            --endpoint "${ALIYUN_OSS_ENDPOINT}" \
+            --prefix "${ALIYUN_OSS_PREFIX}" \
+            --cdn-url-prefix "${ALIYUN_CDN_URL_PREFIX}" \
             --access-key-id "${ALIYUN_ACCESS_KEY_ID}" \
-            --access-key-secret "${ALIYUN_ACCESS_KEY_SECRET}" >/dev/null
-
-          while IFS= read -r url; do
-            [ -n "${url}" ] || continue
-            aliyun cdn RefreshObjectCaches --ObjectPath "${url}" --ObjectType File
-          done < refresh-urls.txt
+            --access-key-secret "${ALIYUN_ACCESS_KEY_SECRET}"
