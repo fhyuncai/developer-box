@@ -32,7 +32,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Sync release version files
-        run: node scripts/release.mjs sync-version --tag "${RELEASE_TAG}"
+        run: node scripts/release.mjs sync-version --tag "${{ env.RELEASE_TAG }}"
 
       - name: Commit synced version files
         run: |
@@ -79,12 +79,12 @@ jobs:
         run: corepack pnpm install --frozen-lockfile
 
       - name: Sync release version files
-        run: node scripts/release.mjs sync-version --tag "${RELEASE_TAG}"
+        run: node scripts/release.mjs sync-version --tag "${{ env.RELEASE_TAG }}"
 
       - name: Build release package
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
-        run: corepack pnpm run ${{ matrix.build_script }}
+        run: corepack pnpm run ${{ matrix.build_script }} -- --publish never
 
       - name: Collect release artifacts
         run: node scripts/release.mjs collect-artifacts --source release --output release-assets
@@ -141,7 +141,7 @@ jobs:
           merge-multiple: true
 
       - name: Generate update.json
-        run: node scripts/release.mjs write-update-json --tag "${RELEASE_TAG}" --event-file "${GITHUB_EVENT_PATH}" --output release-assets/update.json --artifacts-dir release-assets --download-base-url "${ALIYUN_CDN_URL_PREFIX}"
+        run: node scripts/release.mjs write-update-json --tag "${{ env.RELEASE_TAG }}" --event-file "${GITHUB_EVENT_PATH}" --output release-assets/update.json --artifacts-dir release-assets --download-base-url "${ALIYUN_CDN_URL_PREFIX}"
 
       - name: Upload release assets to GitHub Release
         uses: softprops/action-gh-release@v2
