@@ -89,7 +89,8 @@ async function buildDownloadLinks(artifactsDir, downloadBaseUrl, prefix, tag) {
   const entries = await fs.readdir(artifactsDir, { withFileTypes: true });
   const download = {};
   const { tag: normalizedTag } = parseReleaseTag(tag);
-  const downloadRootUrl = joinUrlPath(downloadBaseUrl, `${prefix ?? ''}/${normalizedTag}`);
+  const pathSegments = [prefix, normalizedTag].filter(Boolean).join('/');
+  const downloadRootUrl = joinUrlPath(downloadBaseUrl, pathSegments);
 
   for (const entry of entries) {
     if (!entry.isFile()) {
@@ -118,7 +119,7 @@ async function writeUpdateJsonWithDownloads(tag, notes, outputPath, artifactsDir
     version: normalizedTag,
     versionCode,
     notes: notes ?? '',
-    download: await buildDownloadLinks(artifactsDir, downloadBaseUrl, prefix, normalizedTag),
+    download: await buildDownloadLinks(artifactsDir, downloadBaseUrl, prefix, tag),
   };
 
   await fs.mkdir(path.dirname(outputPath), { recursive: true });
