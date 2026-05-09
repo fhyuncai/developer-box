@@ -80,7 +80,7 @@ jobs:
       - name: Validate release source revision
         shell: bash
         run: |
-          git fetch origin "refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}" --force
+          git fetch origin "refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"
           TAG_SHA="$(git rev-list -n 1 "refs/tags/${RELEASE_TAG}")"
           BRANCH_SHA="$(git rev-parse HEAD)"
 
