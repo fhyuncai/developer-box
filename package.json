@@ -1,6 +1,6 @@
 {
   "name": "developer-box",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Developer Dox",
   "packageManager": "pnpm@10.20.0",
   "type": "module",
