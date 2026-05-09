@@ -19,7 +19,6 @@ env:
 
 jobs:
   sync-version:
-    needs: build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sync branch
@@ -53,6 +52,7 @@ jobs:
 
   build:
     name: Build ${{ matrix.platform }}
+    needs: sync-version
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -66,10 +66,10 @@ jobs:
             build_target: --mac
 
     steps:
-      - name: Checkout release tag
+      - name: Checkout synced release source
         uses: actions/checkout@v4
         with:
-          ref: refs/tags/${{ env.RELEASE_TAG }}
+          ref: ${{ env.RELEASE_SYNC_BRANCH }}
           fetch-depth: 0
 
       - name: Setup Node.js
@@ -80,16 +80,16 @@ jobs:
       - name: Validate release source revision
         shell: bash
         run: |
-          git fetch origin "${RELEASE_SYNC_BRANCH}" --depth=1
-          TAG_SHA="$(git rev-parse HEAD)"
-          BRANCH_SHA="$(git rev-parse "origin/${RELEASE_SYNC_BRANCH}")"
+          git fetch origin "refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}" --force
+          TAG_SHA="$(git rev-list -n 1 "refs/tags/${RELEASE_TAG}")"
+          BRANCH_SHA="$(git rev-parse HEAD)"
 
-          echo "Building release tag ${RELEASE_TAG} from commit ${TAG_SHA}"
-          echo "Current ${RELEASE_SYNC_BRANCH} HEAD is ${BRANCH_SHA}"
+          echo "Release tag ${RELEASE_TAG} points to commit ${TAG_SHA}"
+          echo "Building synced ${RELEASE_SYNC_BRANCH} HEAD ${BRANCH_SHA}"
 
-          if [ "${TAG_SHA}" != "${BRANCH_SHA}" ]; then
-            echo "Release tag ${RELEASE_TAG} does not point at the latest ${RELEASE_SYNC_BRANCH} commit." >&2
-            echo "Create a new tag from ${RELEASE_SYNC_BRANCH} after merging the fixes, then publish that release." >&2
+          if ! git merge-base --is-ancestor "${TAG_SHA}" "${BRANCH_SHA}"; then
+            echo "Synced ${RELEASE_SYNC_BRANCH} does not contain release tag ${RELEASE_TAG}." >&2
+            echo "Publish the release from ${RELEASE_SYNC_BRANCH} so the version sync commit is based on the tagged source." >&2
             exit 1
           fi
 
@@ -103,12 +103,6 @@ jobs:
 
       - name: Install dependencies
         run: corepack pnpm install --frozen-lockfile
-
-      - name: Sync release version files
-        shell: bash
-        env:
-          RELEASE_TAG_VALUE: ${{ env.RELEASE_TAG }}
-        run: node scripts/release.mjs sync-version --tag "$RELEASE_TAG_VALUE"
 
       - name: Build release package
         env:
