@@ -65,8 +65,8 @@ pnpm build
   "versionCode": 1,
   "notes": "来自 GitHub Release 内容，可为空",
   "download": {
-    "windows": "https://download.example.com/developer-box/releases/Developer%20Box%200.0.1.exe",
-    "macArm64": "https://download.example.com/developer-box/releases/Developer%20Box-0.0.1-arm64-mac.zip"
+    "windows": "https://download.example.com/developer-box/releases/v0.0.1/DeveloperBox.exe",
+    "macArm64": "https://download.example.com/developer-box/releases/v0.0.1/DeveloperBox-arm64-mac.zip"
   }
 }
 ```
@@ -90,7 +90,7 @@ pnpm build
 - `ALIYUN_OSS_BUCKET`：OSS Bucket 名称
 - `ALIYUN_OSS_ENDPOINT`：OSS Endpoint，例如 `oss-cn-hangzhou.aliyuncs.com`
 - `ALIYUN_OSS_PREFIX`：上传目录前缀，可选，默认 `developer-box/releases`
-- `ALIYUN_CDN_URL_PREFIX`：对外下载地址前缀（工作流会自动拼接 `ALIYUN_OSS_PREFIX` 与文件名，用于生成 `update.json` 中的下载链接），例如 `https://download.example.com`
+- `ALIYUN_CDN_URL_PREFIX`：对外下载地址前缀（工作流会自动拼接 `ALIYUN_OSS_PREFIX`、版本目录与文件名，用于生成 `update.json` 中的下载链接），例如 `https://download.example.com`
 - `RELEASE_SYNC_BRANCH`：版本文件自动回写分支，可选，默认仓库默认分支
 
 ### 使用方式
