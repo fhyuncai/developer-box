@@ -80,7 +80,11 @@ jobs:
       - name: Validate release source revision
         shell: bash
         run: |
-          git fetch origin "refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"
+          if ! git fetch origin "refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"; then
+            echo "Unable to fetch release tag ${RELEASE_TAG} for source validation." >&2
+            echo "Confirm the published release still points to an existing remote tag, then rerun the workflow." >&2
+            exit 1
+          fi
           TAG_SHA="$(git rev-list -n 1 "refs/tags/${RELEASE_TAG}")"
           BRANCH_SHA="$(git rev-parse HEAD)"
 
@@ -89,7 +93,7 @@ jobs:
 
           if ! git merge-base --is-ancestor "${TAG_SHA}" "${BRANCH_SHA}"; then
             echo "Synced ${RELEASE_SYNC_BRANCH} does not contain release tag ${RELEASE_TAG}." >&2
-            echo "Publish the release from ${RELEASE_SYNC_BRANCH} so the version sync commit is based on the tagged source." >&2
+            echo "Recreate the release tag from ${RELEASE_SYNC_BRANCH}, publish the release again, and let the workflow sync the version before rebuilding." >&2
             exit 1
           fi
 
