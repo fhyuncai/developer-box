@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import CryptoJS from 'crypto-js';
-import { Button, Flex, Input, Radio, Space, Typography, message } from 'antd';
+import { App as AntdApp, Button, Flex, Input, Radio, Space, Typography } from 'antd';
 import { CopyOutlined } from '@ant-design/icons';
 
 const { TextArea } = Input;
 
 export default function AesTool() {
+  const { message } = AntdApp.useApp();
   const [input, setInput] = useState('');
   const [key, setKey] = useState('');
   const [output, setOutput] = useState('');

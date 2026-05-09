@@ -8,6 +8,31 @@ declare global {
     checkins?: Array<Record<string, unknown>>;
   };
 
+  type AppUpdateState = {
+    updateUrl: string;
+    currentVersion: string;
+    currentVersionCode: number;
+    latestVersion: string;
+    latestVersionCode: number;
+    notes: string;
+    hasUpdate: boolean;
+    checking: boolean;
+    downloading: boolean;
+    applying: boolean;
+    progress: number;
+    lastCheckedAt: number;
+    lastError: string;
+    downloadUrl: string;
+    canAutoApply: boolean;
+  };
+
+  type UpdateCheckResult = {
+    status: 'update-available' | 'up-to-date' | 'not-supported' | 'error';
+    reason: 'startup' | 'interval' | 'manual';
+    state: AppUpdateState;
+    error?: string;
+  };
+
   type NoteSummary = {
     id: string;
     title: string;
@@ -28,6 +53,9 @@ declare global {
       getStoragePath: () => Promise<string>;
       getNotesDbPath: () => Promise<string>;
       getSystemTheme: () => Promise<'light' | 'dark'>;
+      getUpdateState: () => Promise<AppUpdateState>;
+      checkForUpdates: () => Promise<UpdateCheckResult>;
+      startUpdate: () => Promise<{ status: 'applying' | 'downloading'; state: AppUpdateState }>;
       chooseDirectory: (payload?: { title?: string; defaultPath?: string }) => Promise<string>;
       getSettings: () => Promise<DeveloperBoxSettings>;
       saveSettings: (settings: DeveloperBoxSettings) => Promise<DeveloperBoxSettings>;
@@ -42,6 +70,7 @@ declare global {
       importNoteImage: (noteId: string) => Promise<{ fileName: string; relativePath: string; absolutePath: string } | null>;
       onOpenSettingsFromMenu: (callback: () => void) => () => void;
       onSystemThemeChange: (callback: (value: 'light' | 'dark') => void) => () => void;
+      onUpdateStateChange: (callback: (value: AppUpdateState) => void) => () => void;
       getAlwaysOnTop: () => Promise<boolean>;
       setAlwaysOnTop: (flag: boolean) => Promise<boolean>;
       loadMarkdown: () => Promise<string | null>;

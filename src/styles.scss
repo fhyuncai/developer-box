@@ -176,6 +176,11 @@ body {
   }
 }
 
+.ant-message {
+  top: calc(var(--titlebar-height) + 8px) !important;
+  z-index: 1100 !important;
+}
+
 html,
 body,
 #root,

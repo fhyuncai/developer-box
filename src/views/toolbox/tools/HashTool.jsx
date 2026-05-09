@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import CryptoJS from 'crypto-js';
-import { Button, Flex, Input, message } from 'antd';
+import { App as AntdApp, Button, Flex, Input } from 'antd';
 import { CopyOutlined } from '@ant-design/icons';
 
 const { TextArea } = Input;
@@ -16,12 +16,13 @@ const ALGOS = [
   { key: 'RIPEMD160', label: 'RIPEMD-160', fn: (t) => t ? CryptoJS.RIPEMD160(t).toString() : '' },
 ];
 
-function copyText(text) {
-  navigator.clipboard.writeText(text).then(() => message.success('已复制'));
-}
-
 export default function HashTool() {
+  const { message } = AntdApp.useApp();
   const [input, setInput] = useState('');
+
+  const copyText = (text) => {
+    navigator.clipboard.writeText(text).then(() => message.success('已复制'));
+  };
 
   const hashes = useMemo(() => {
     // if (!input) return [];

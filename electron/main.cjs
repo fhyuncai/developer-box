@@ -2,6 +2,7 @@
 const path = require('path');
 const os = require('os');
 const fs = require('fs/promises');
+const { createUpdater } = require('./updater.cjs');
 const {
   initializeNotesDatabase,
   getDatabaseFilePath,
@@ -39,6 +40,19 @@ async function writeJson(filePath, data) {
 function getSystemTheme() {
   return nativeTheme.shouldUseDarkColors ? 'dark' : 'light';
 }
+
+function broadcastToAllWindows(channel, payload) {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) {
+      win.webContents.send(channel, payload);
+    }
+  }
+}
+
+const updater = createUpdater({
+  onStateChange: (payload) => broadcastToAllWindows('update-state-changed', payload),
+});
+let updatePromptInFlight = false;
 
 // ---- 打卡通知调度器 ----
 let checkinData = [];
@@ -238,6 +252,41 @@ function createWindow() {
   } else {
     window.loadFile(path.join(__dirname, '../dist/index.html'));
   }
+
+  return window;
+}
+
+async function promptForAvailableUpdate(nextState) {
+  if (!nextState?.hasUpdate || updatePromptInFlight) {
+    return;
+  }
+
+  updatePromptInFlight = true;
+  const focusedWindow = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0] || undefined;
+
+  try {
+    const detail = nextState.notes
+      ? `${nextState.notes}\n\n更新完成后会自动重启应用。`
+      : '更新完成后会自动重启应用。';
+    const result = await dialog.showMessageBox(focusedWindow, {
+      type: 'info',
+      title: '发现新版本',
+      message: `检测到新版本 ${nextState.latestVersion}`,
+      detail,
+      buttons: ['立即更新', '稍后'],
+      defaultId: 0,
+      cancelId: 1,
+      noLink: true,
+    });
+
+    if (result.response === 0) {
+      await updater.startUpdate();
+    }
+  } catch (error) {
+    console.error('Failed to prompt for update', error);
+  } finally {
+    updatePromptInFlight = false;
+  }
 }
 
 app.whenReady().then(async () => {
@@ -260,6 +309,14 @@ app.whenReady().then(async () => {
         win.webContents.send('system-theme-changed', value);
       }
     });
+
+    if (app.isPackaged) {
+      updater.startPeriodicChecks();
+      const result = await updater.checkForUpdates({ reason: 'startup', silent: true });
+      if (result?.status === 'update-available') {
+        await promptForAvailableUpdate(result.state);
+      }
+    }
   } catch (error) {
     console.error('Failed to start application', error);
     dialog.showErrorBox(
@@ -285,6 +342,9 @@ app.on('window-all-closed', () => {
 ipcMain.handle('app:get-storage-path', async () => DATA_DIR);
 ipcMain.handle('app:get-notes-db-path', async () => getDatabaseFilePath());
 ipcMain.handle('app:get-system-theme', async () => getSystemTheme());
+ipcMain.handle('updates:get-state', async () => updater.getState());
+ipcMain.handle('updates:check', async () => updater.checkForUpdates({ reason: 'manual' }));
+ipcMain.handle('updates:start', async () => updater.startUpdate());
 ipcMain.handle('app:choose-directory', async (_, payload = {}) => {
   const focused = BrowserWindow.getFocusedWindow();
   const result = await dialog.showOpenDialog(focused || undefined, {

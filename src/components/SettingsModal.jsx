@@ -1,6 +1,23 @@
-import { Divider, Flex, Modal, Radio, Typography } from 'antd';
+import { Button, Divider, Flex, Modal, Radio, Tag, Typography } from 'antd';
+import { VERSION } from '../version';
 
-export default function SettingsModal({ open, onClose, themeMode, effectiveTheme, onThemeModeChange }) {
+function formatCheckedAt(timestamp) {
+  if (!timestamp) return '';
+  return new Date(timestamp).toLocaleString('zh-CN', { hour12: false });
+}
+
+export default function SettingsModal({
+  open,
+  onClose,
+  themeMode,
+  effectiveTheme,
+  onThemeModeChange,
+  updateState,
+  onCheckForUpdates,
+  onStartUpdate,
+}) {
+  const checkedAtText = formatCheckedAt(updateState?.lastCheckedAt);
+
   return (
     <Modal
       title="设置"
@@ -21,9 +38,52 @@ export default function SettingsModal({ open, onClose, themeMode, effectiveTheme
         </Typography.Text>
         <Divider size="small" />
         <Typography.Text strong>关于</Typography.Text>
-        <Typography.Title level={5} type="secondary" style={{ margin: 0 }}>
-          Developer Box 0.0.1 Alpha
-        </Typography.Title>
+        <Flex align="center" gap={0} wrap>
+          <Typography.Title level={5} type="secondary" style={{ margin: 0 }}>
+            Developer Box {VERSION}
+          </Typography.Title>
+          <Button
+            size="small"
+            type="link"
+            loading={!!updateState?.checking}
+            disabled={!!updateState?.downloading || !!updateState?.applying}
+            onClick={onCheckForUpdates}
+          >
+            检查更新
+          </Button>
+        </Flex>
+        {updateState?.hasUpdate && (
+          <Flex vertical gap={8}>
+            <Flex align="center" gap={8} wrap>
+              <Tag color="error">发现新版本 {updateState.latestVersion}</Tag>
+              <Button
+                size="small"
+                type="primary"
+                loading={!!updateState?.downloading}
+                disabled={!updateState?.canAutoApply || !!updateState?.applying}
+                onClick={onStartUpdate}
+              >
+                下载并重启
+              </Button>
+            </Flex>
+            {!!updateState?.notes && (
+              <Typography.Paragraph type="secondary" style={{ marginBottom: 0, whiteSpace: 'pre-wrap' }}>
+                {updateState.notes}
+              </Typography.Paragraph>
+            )}
+            {!updateState?.canAutoApply && (
+              <Typography.Text type="secondary">
+                当前环境不支持自动安装更新，请在构建后的应用中测试。
+              </Typography.Text>
+            )}
+          </Flex>
+        )}
+        {!!updateState?.applying && (
+          <Typography.Text type="secondary">更新包已准备完成，应用正在重启。</Typography.Text>
+        )}
+        {!!updateState?.lastError && (
+          <Typography.Text type="danger">{updateState.lastError}</Typography.Text>
+        )}
         <Typography.Text type="secondary">
           &copy; FHYunCai
         </Typography.Text>

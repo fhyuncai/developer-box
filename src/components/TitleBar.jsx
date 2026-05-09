@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Button, Tooltip } from 'antd';
+import { Badge, Button, Tooltip } from 'antd';
 import { PushpinFilled, PushpinOutlined, SettingOutlined, MinusOutlined, BorderOutlined, CloseOutlined } from '@ant-design/icons';
 
-export default function TitleBar({ onOpenSettings }) {
+export default function TitleBar({ onOpenSettings, hasUpdateDot = false }) {
   const [pinned, setPinned] = useState(false);
   const [isMac, setIsMac] = useState(true);
   const [isMaximized, setIsMaximized] = useState(false);
@@ -32,13 +32,15 @@ export default function TitleBar({ onOpenSettings }) {
 
       <div className="titlebar-actions">
         <Tooltip title="设置" placement="bottom" zIndex={9999}>
-          <Button
-            className="titlebar-btn"
-            type="text"
-            size="small"
-            icon={<SettingOutlined />}
-            onClick={onOpenSettings}
-          />
+          <Badge dot={hasUpdateDot} offset={[-3, 4]}>
+            <Button
+              className="titlebar-btn"
+              type="text"
+              size="small"
+              icon={<SettingOutlined />}
+              onClick={onOpenSettings}
+            />
+          </Badge>
         </Tooltip>
         <Tooltip title={pinned ? '取消置顶' : '窗口置顶'} placement="bottomRight" zIndex={9999}>
           <Button

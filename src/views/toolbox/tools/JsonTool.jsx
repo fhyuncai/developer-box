@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Dropdown, Flex, Input, Modal, Space, Tag, Tooltip, Tree, Typography, message } from 'antd';
+import { App as AntdApp, Button, Dropdown, Flex, Input, Modal, Space, Tag, Tooltip, Tree, Typography } from 'antd';
 import { ApartmentOutlined, ColumnHeightOutlined, DeleteOutlined, DownOutlined, ExportOutlined, UpOutlined, VerticalAlignMiddleOutlined } from '@ant-design/icons';
 
 const { TextArea } = Input;
@@ -298,6 +298,7 @@ function NestedNodeTitle({ node, type, valBrief, jsonParsable, onDeleteNode }) {
 }
 
 export default function JsonTool() {
+  const { message } = AntdApp.useApp();
   const [input, setInput] = useState('');
   const [parsed, setParsed] = useState(null);
   const [error, setError] = useState('');

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { App as AntdApp, ConfigProvider, theme } from 'antd';
+import { App as AntdApp, ConfigProvider, message, theme } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import dayjs from 'dayjs';
 import 'dayjs/locale/zh-cn';
@@ -58,6 +58,24 @@ const DEFAULT_CHECKINS = [
   { id: 'preset-walk', title: '散步', enabled: false, weekdays: [1, 2, 3, 4, 5], times: ['18:00'], records: [], createdAt: Date.now(), preset: true },
 ];
 
+const DEFAULT_UPDATE_STATE = {
+  updateUrl: '',
+  currentVersion: '',
+  currentVersionCode: 0,
+  latestVersion: '',
+  latestVersionCode: 0,
+  notes: '',
+  hasUpdate: false,
+  checking: false,
+  downloading: false,
+  applying: false,
+  progress: 0,
+  lastCheckedAt: 0,
+  lastError: '',
+  downloadUrl: '',
+  canAutoApply: false,
+};
+
 function normalizeCheckins(list) {
   if (!Array.isArray(list) || list.length === 0) return DEFAULT_CHECKINS;
   return list.map((item) => ({
@@ -88,19 +106,23 @@ export default function App() {
   const [dashboardOrder, setDashboardOrder] = useState(DEFAULT_DASHBOARD_ORDER);
   const [checkins, setCheckins] = useState(DEFAULT_CHECKINS);
   const [pageStack, setPageStack] = useState(['home']);
+  const [updateState, setUpdateState] = useState(DEFAULT_UPDATE_STATE);
+  const [messageApi, messageContextHolder] = message.useMessage();
 
   useEffect(() => {
     let mounted = true;
     let unsubscribeTheme = null;
     let unsubscribeMenuSettings = null;
     let unsubscribeCheckinNotification = null;
+    let unsubscribeUpdateState = null;
 
     async function bootstrap() {
-      const [settings, list, sysTheme, noteList] = await Promise.all([
+      const [settings, list, sysTheme, noteList, nextUpdateState] = await Promise.all([
         window.developerBox.getSettings(),
         window.developerBox.getTodos(),
         window.developerBox.getSystemTheme(),
         window.developerBox.listNotes(),
+        window.developerBox.getUpdateState(),
       ]);
 
       if (!mounted) {
@@ -116,9 +138,14 @@ export default function App() {
       setTodoLists(migrateOldTodos(Array.isArray(list) ? list : []));
       setNotes(Array.isArray(noteList) ? noteList : []);
       setSystemTheme(sysTheme);
+      setUpdateState(nextUpdateState || DEFAULT_UPDATE_STATE);
 
       unsubscribeTheme = window.developerBox.onSystemThemeChange((value) => {
         setSystemTheme(value);
+      });
+
+      unsubscribeUpdateState = window.developerBox.onUpdateStateChange((value) => {
+        setUpdateState(value || DEFAULT_UPDATE_STATE);
       });
 
       unsubscribeMenuSettings = window.developerBox.onOpenSettingsFromMenu(() => {
@@ -137,6 +164,7 @@ export default function App() {
       if (unsubscribeTheme) unsubscribeTheme();
       if (unsubscribeMenuSettings) unsubscribeMenuSettings();
       if (unsubscribeCheckinNotification) unsubscribeCheckinNotification();
+      if (unsubscribeUpdateState) unsubscribeUpdateState();
     };
   }, []);
 
@@ -193,6 +221,40 @@ export default function App() {
     await saveMergedSettings(themeMode, pinnedBoards, dashboardOrder, next);
   };
 
+  const handleCheckForUpdates = async () => {
+    try {
+      const result = await window.developerBox.checkForUpdates();
+      if (result?.state) {
+        setUpdateState(result.state);
+      }
+
+      if (result?.status === 'up-to-date') {
+        messageApi.success('当前已是最新版本');
+        return;
+      }
+
+      if (result?.status === 'not-supported') {
+        messageApi.warning(result.error || '当前系统暂无对应的更新包');
+        return;
+      }
+
+      if (result?.status === 'update-available') {
+        messageApi.warning(`发现新版本 ${result.state.latestVersion}`);
+      }
+    } catch (error) {
+      messageApi.error(error?.message || '检查更新失败');
+    }
+  };
+
+  const handleStartUpdate = async () => {
+    try {
+      await window.developerBox.startUpdate();
+      messageApi.info('更新包准备完成，应用即将重启');
+    } catch (error) {
+      messageApi.error(error?.message || '开始更新失败');
+    }
+  };
+
   const currentPage = pageStack[pageStack.length - 1] || 'home';
 
   useEffect(() => {
@@ -227,8 +289,9 @@ export default function App() {
   return (
     <ConfigProvider theme={antdTheme} locale={zhCN}>
       <AntdApp>
+        {messageContextHolder}
         <div className="app-shell">
-          <TitleBar onOpenSettings={() => setSettingsOpen(true)} />
+          <TitleBar onOpenSettings={() => setSettingsOpen(true)} hasUpdateDot={updateState.hasUpdate} />
           <main className="page-wrap">
             {currentPage === 'home' && (
               <HomePage
@@ -294,6 +357,9 @@ export default function App() {
               themeMode={themeMode}
               effectiveTheme={effectiveTheme}
               onThemeModeChange={handleThemeModeChange}
+              updateState={updateState}
+              onCheckForUpdates={handleCheckForUpdates}
+              onStartUpdate={handleStartUpdate}
             />
           </main>
         </div>

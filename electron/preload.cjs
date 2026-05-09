@@ -5,6 +5,9 @@ contextBridge.exposeInMainWorld('developerBox', {
   getStoragePath: () => ipcRenderer.invoke('app:get-storage-path'),
   getNotesDbPath: () => ipcRenderer.invoke('app:get-notes-db-path'),
   getSystemTheme: () => ipcRenderer.invoke('app:get-system-theme'),
+  getUpdateState: () => ipcRenderer.invoke('updates:get-state'),
+  checkForUpdates: () => ipcRenderer.invoke('updates:check'),
+  startUpdate: () => ipcRenderer.invoke('updates:start'),
   chooseDirectory: (payload) => ipcRenderer.invoke('app:choose-directory', payload),
   getSettings: () => ipcRenderer.invoke('settings:get'),
   saveSettings: (settings) => ipcRenderer.invoke('settings:set', settings),
@@ -26,6 +29,11 @@ contextBridge.exposeInMainWorld('developerBox', {
     const listener = (_, value) => callback(value);
     ipcRenderer.on('system-theme-changed', listener);
     return () => ipcRenderer.removeListener('system-theme-changed', listener);
+  },
+  onUpdateStateChange: (callback) => {
+    const listener = (_, value) => callback(value);
+    ipcRenderer.on('update-state-changed', listener);
+    return () => ipcRenderer.removeListener('update-state-changed', listener);
   },
   getAlwaysOnTop: () => ipcRenderer.invoke('window:get-always-on-top'),
   setAlwaysOnTop: (flag) => ipcRenderer.invoke('window:set-always-on-top', flag),

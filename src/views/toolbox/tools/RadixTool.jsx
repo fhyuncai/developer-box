@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Alert, Button, Flex, Input, Select, message } from 'antd';
+import { Alert, App as AntdApp, Button, Flex, Input, Select } from 'antd';
 import { CopyOutlined } from '@ant-design/icons';
 
 const RADIX_OPTIONS = [
@@ -17,13 +17,14 @@ function numToBase64(num) {
   return btoa(bytes);
 }
 
-function copyText(text) {
-  navigator.clipboard.writeText(text).then(() => message.success('已复制'));
-}
-
 export default function RadixTool() {
+  const { message } = AntdApp.useApp();
   const [input, setInput] = useState('');
   const [fromRadix, setFromRadix] = useState(10);
+
+  const copyText = (text) => {
+    navigator.clipboard.writeText(text).then(() => message.success('已复制'));
+  };
 
   const result = useMemo(() => {
     const trimmed = input.trim();
