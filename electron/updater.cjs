@@ -119,6 +119,23 @@ function sanitizeName(value, fallback = 'update') {
   return sanitized || fallback;
 }
 
+function getWindowsInstallTargetPath() {
+  if (process.platform !== 'win32') {
+    return app.getPath('exe');
+  }
+
+  const portableExecutablePath = process.env.PORTABLE_EXECUTABLE_FILE;
+  if (typeof portableExecutablePath === 'string' && portableExecutablePath.trim()) {
+    return portableExecutablePath;
+  }
+
+  return app.getPath('exe');
+}
+
+function toPowerShellLiteral(value) {
+  return `'${String(value).replace(/'/g, "''")}'`;
+}
+
 function getCurrentVersionInfo() {
   const currentVersion = normalizeVersionTag(app.getVersion());
   return {
@@ -326,34 +343,51 @@ function createUpdater({ onStateChange } = {}) {
   }
 
   async function createWindowsInstallScript(downloadPath) {
-    const currentExePath = app.getPath('exe');
-    await ensureWritable(currentExePath);
+    const targetExePath = getWindowsInstallTargetPath();
+    await ensureWritable(targetExePath);
 
-    const scriptPath = path.join(path.dirname(downloadPath), 'apply-update.cmd');
+    const scriptPath = path.join(path.dirname(downloadPath), 'apply-update.ps1');
     const scriptLines = [
-      '@echo off',
-      'setlocal',
-      ':waitloop',
-      `tasklist /FI "PID eq ${process.pid}" 2>nul | find "${process.pid}" >nul`,
-      'if not errorlevel 1 (',
-      '  timeout /t 1 /nobreak >nul',
-      '  goto waitloop',
-      ')',
-      ':copyloop',
-      `copy /Y "${downloadPath}" "${currentExePath}" >nul`,
-      'if errorlevel 1 (',
-      '  timeout /t 1 /nobreak >nul',
-      '  goto copyloop',
-      ')',
-      `start "" "${currentExePath}"`,
-      `del /Q "${downloadPath}" >nul 2>&1`,
-      'del /Q "%~f0" >nul 2>&1',
-      'exit /b 0',
+      "$ErrorActionPreference = 'Stop'",
+      `$parentPid = ${process.pid}`,
+      `$downloadPath = ${toPowerShellLiteral(downloadPath)}`,
+      `$targetPath = ${toPowerShellLiteral(targetExePath)}`,
+      '',
+      'try {',
+      '  $parentProcess = Get-Process -Id $parentPid -ErrorAction Stop',
+      '  $parentProcess.WaitForExit()',
+      '} catch [System.ArgumentException] {',
+      '} catch {',
+      '}',
+      '',
+      'Start-Sleep -Milliseconds 500',
+      '$targetDir = Split-Path -Parent $targetPath',
+      'if (-not (Test-Path -LiteralPath $targetDir)) {',
+      '  New-Item -ItemType Directory -Path $targetDir -Force | Out-Null',
+      '}',
+      '',
+      '$updated = $false',
+      'for ($attempt = 0; $attempt -lt 30 -and -not $updated; $attempt++) {',
+      '  try {',
+      '    Copy-Item -LiteralPath $downloadPath -Destination $targetPath -Force',
+      '    $updated = $true',
+      '  } catch {',
+      '    Start-Sleep -Seconds 1',
+      '  }',
+      '}',
+      '',
+      'if (-not $updated) {',
+      '  exit 1',
+      '}',
+      '',
+      'Remove-Item -LiteralPath $downloadPath -Force -ErrorAction SilentlyContinue',
+      'Start-Process -FilePath $targetPath -WorkingDirectory $targetDir | Out-Null',
+      'Remove-Item -LiteralPath $PSCommandPath -Force -ErrorAction SilentlyContinue',
       '',
     ];
     await fsp.writeFile(scriptPath, scriptLines.join('\r\n'), 'utf8');
 
-    const child = spawn('cmd.exe', ['/d', '/c', scriptPath], {
+    const child = spawn('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', scriptPath], {
       detached: true,
       stdio: 'ignore',
       windowsHide: true,
@@ -365,7 +399,7 @@ function createUpdater({ onStateChange } = {}) {
     const executablePath = app.getPath('exe');
     const targetAppPath = path.resolve(executablePath, '..', '..', '..');
     if (!targetAppPath.endsWith('.app')) {
-      throw new Error('无法定位当前应用包，暂不支持自动更新。');
+      throw new Error('无法定位当前应用包，暂不支持自动更新');
     }
 
     await ensureWritable(targetAppPath);
@@ -436,12 +470,12 @@ function createUpdater({ onStateChange } = {}) {
       return;
     }
 
-    throw new Error('当前系统暂不支持自动更新。');
+    throw new Error('当前系统暂不支持自动更新');
   }
 
   async function startUpdate() {
     if (!state.hasUpdate || !state.downloadUrl) {
-      throw new Error('当前没有可用更新。');
+      throw new Error('当前没有可用更新');
     }
 
     if (state.downloading || state.applying) {
@@ -449,11 +483,11 @@ function createUpdater({ onStateChange } = {}) {
     }
 
     if (!app.isPackaged) {
-      throw new Error('开发环境不支持自动安装更新，请使用构建后的应用测试。');
+      throw new Error('开发环境不支持自动安装更新，请使用构建后的应用测试');
     }
 
     if (!isAutoUpdatePlatformSupported()) {
-      throw new Error('当前系统暂不支持自动安装更新。');
+      throw new Error('当前系统暂不支持自动安装更新');
     }
 
     const { tempDir, downloadPath } = buildTempPaths(state.latestVersion || 'latest', state.downloadUrl);
@@ -485,7 +519,7 @@ function createUpdater({ onStateChange } = {}) {
         downloading: false,
         applying: false,
         progress: 0,
-        lastError: error?.message || '更新失败。',
+        lastError: error?.message || '更新失败',
       });
       throw error;
     }
