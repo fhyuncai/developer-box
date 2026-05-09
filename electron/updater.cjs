@@ -3,13 +3,100 @@ const fsp = require('fs/promises');
 const os = require('os');
 const path = require('path');
 const { spawn } = require('child_process');
+const { Readable } = require('stream');
 const { pipeline } = require('stream/promises');
-const axios = require('axios');
 const { app } = require('electron');
 
 const UPDATE_URL = 'http://developer-box-update.sakiko.cn/release/update.json';
 const UPDATE_INTERVAL_MS = 12 * 60 * 60 * 1000;
 const TEMP_ROOT_NAME = 'developer-box-update';
+
+function createTimeoutSignal(timeoutMs) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  return {
+    signal: controller.signal,
+    dispose() {
+      clearTimeout(timeoutId);
+    },
+  };
+}
+
+function getRequestErrorMessage(error, fallbackMessage) {
+  if (error?.name === 'AbortError') {
+    return fallbackMessage;
+  }
+
+  if (typeof error?.message === 'string' && error.message.trim()) {
+    return error.message;
+  }
+
+  return fallbackMessage;
+}
+
+function getHttpErrorMessage(action, response) {
+  const suffix = response.statusText ? ` ${response.statusText}` : '';
+  return `${action}失败：${response.status}${suffix}`;
+}
+
+async function fetchJson(url, { timeout, headers } = {}) {
+  const { signal, dispose } = createTimeoutSignal(timeout);
+
+  try {
+    const response = await fetch(url, {
+      headers,
+      redirect: 'follow',
+      signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(getHttpErrorMessage('请求更新配置', response));
+    }
+
+    return await response.json();
+  } catch (error) {
+    throw new Error(getRequestErrorMessage(error, '请求更新配置超时'));
+  } finally {
+    dispose();
+  }
+}
+
+async function downloadFile(url, targetPath, { timeout, onProgress } = {}) {
+  const { signal, dispose } = createTimeoutSignal(timeout);
+
+  try {
+    const response = await fetch(url, {
+      redirect: 'follow',
+      signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(getHttpErrorMessage('下载更新包', response));
+    }
+
+    if (!response.body) {
+      throw new Error('下载更新包失败：响应体为空');
+    }
+
+    const totalBytes = Number(response.headers.get('content-length') || 0);
+    let downloadedBytes = 0;
+    const readable = Readable.fromWeb(response.body);
+
+    readable.on('data', (chunk) => {
+      downloadedBytes += chunk.length;
+      if (typeof onProgress === 'function') {
+        onProgress(downloadedBytes, totalBytes);
+      }
+    });
+
+    await pipeline(readable, fs.createWriteStream(targetPath));
+  } catch (error) {
+    await fsp.rm(targetPath, { force: true }).catch(() => {});
+    throw new Error(getRequestErrorMessage(error, '下载更新包超时'));
+  } finally {
+    dispose();
+  }
+}
 
 function normalizeVersionTag(version) {
   if (!version) return 'v0.0.0';
@@ -107,15 +194,13 @@ function createUpdater({ onStateChange } = {}) {
   const getState = () => getStateSnapshot(state);
 
   async function fetchUpdateManifest() {
-    const response = await axios.get(UPDATE_URL, {
+    const payload = await fetchJson(UPDATE_URL, {
       timeout: 20000,
-      responseType: 'json',
       headers: {
         Accept: 'application/json',
       },
     });
 
-    const payload = response.data;
     if (!payload || typeof payload !== 'object') {
       throw new Error('更新配置格式无效。');
     }
@@ -228,23 +313,15 @@ function createUpdater({ onStateChange } = {}) {
     const partialPath = `${targetPath}.download`;
     await fsp.rm(partialPath, { force: true });
 
-    const response = await axios.get(downloadUrl, {
+    await downloadFile(downloadUrl, partialPath, {
       timeout: 60000,
-      responseType: 'stream',
-      maxRedirects: 5,
-    });
-
-    const totalBytes = Number(response.headers['content-length'] || 0);
-    let downloadedBytes = 0;
-
-    response.data.on('data', (chunk) => {
-      downloadedBytes += chunk.length;
+      onProgress: (downloadedBytes, totalBytes) => {
       setState({
         progress: totalBytes > 0 ? Math.min(100, Math.round((downloadedBytes / totalBytes) * 100)) : 0,
       });
+      },
     });
 
-    await pipeline(response.data, fs.createWriteStream(partialPath));
     await fsp.rename(partialPath, targetPath);
   }
 
