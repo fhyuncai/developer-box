@@ -136,6 +136,11 @@ function toPowerShellLiteral(value) {
   return `'${String(value).replace(/'/g, "''")}'`;
 }
 
+function isFileSystemRoot(targetPath) {
+  const normalizedPath = path.resolve(targetPath);
+  return normalizedPath === path.parse(normalizedPath).root;
+}
+
 function getCurrentVersionInfo() {
   const currentVersion = normalizeVersionTag(app.getVersion());
   return {
@@ -307,7 +312,9 @@ function createUpdater({ onStateChange } = {}) {
 
   async function ensureWritable(targetPath) {
     const targetDir = path.dirname(targetPath);
-    await fsp.mkdir(targetDir, { recursive: true });
+    if (!isFileSystemRoot(targetDir)) {
+      await fsp.mkdir(targetDir, { recursive: true });
+    }
     await fsp.access(targetDir, fs.constants.W_OK);
   }
 
