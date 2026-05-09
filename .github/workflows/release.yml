@@ -69,11 +69,28 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: refs/tags/${{ env.RELEASE_TAG }}
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+
+      - name: Validate release source revision
+        shell: bash
+        run: |
+          git fetch origin "${RELEASE_SYNC_BRANCH}" --depth=1
+          TAG_SHA="$(git rev-parse HEAD)"
+          BRANCH_SHA="$(git rev-parse "origin/${RELEASE_SYNC_BRANCH}")"
+
+          echo "Building release tag ${RELEASE_TAG} from commit ${TAG_SHA}"
+          echo "Current ${RELEASE_SYNC_BRANCH} HEAD is ${BRANCH_SHA}"
+
+          if [ "${TAG_SHA}" != "${BRANCH_SHA}" ]; then
+            echo "Release tag ${RELEASE_TAG} does not point at the latest ${RELEASE_SYNC_BRANCH} commit." >&2
+            echo "Create a new tag from ${RELEASE_SYNC_BRANCH} after merging the fixes, then publish that release." >&2
+            exit 1
+          fi
 
       - name: Enable Corepack
         run: corepack enable
