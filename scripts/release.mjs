@@ -89,8 +89,8 @@ async function buildDownloadLinks(artifactsDir, downloadBaseUrl, prefix, tag) {
   const entries = await fs.readdir(artifactsDir, { withFileTypes: true });
   const download = {};
   const { tag: normalizedTag } = parseReleaseTag(tag);
-  const pathSegments = [prefix, normalizedTag].filter(Boolean).join('/');
-  const downloadRootUrl = joinUrlPath(downloadBaseUrl, pathSegments);
+  const versionPath = [prefix, normalizedTag].filter(Boolean).join('/');
+  const downloadRootUrl = joinUrlPath(downloadBaseUrl, versionPath);
 
   for (const entry of entries) {
     if (!entry.isFile()) {
