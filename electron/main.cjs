@@ -265,14 +265,11 @@ async function promptForAvailableUpdate(nextState) {
   const focusedWindow = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0] || undefined;
 
   try {
-    const detail = nextState.notes
-      ? `${nextState.notes}\n\n更新完成后会自动重启应用。`
-      : '更新完成后会自动重启应用。';
     const result = await dialog.showMessageBox(focusedWindow, {
       type: 'info',
       title: '发现新版本',
       message: `检测到新版本 ${nextState.latestVersion}`,
-      detail,
+      detail: nextState.notes || '',
       buttons: ['立即更新', '稍后'],
       defaultId: 0,
       cancelId: 1,
