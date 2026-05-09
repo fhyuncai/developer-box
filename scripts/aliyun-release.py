@@ -74,9 +74,14 @@ def publish(args: argparse.Namespace) -> None:
         raise RuntimeError(f"No files found in {artifacts_dir}")
 
     oss_prefix = normalize_prefix(args.prefix)
+    version_dir = args.version.strip("/")
     for file_path in files:
         file_name = file_path.name
-        object_key = f"{oss_prefix}/{file_name}" if oss_prefix else file_name
+        if file_name == "update.json":
+            segments = [segment for segment in (oss_prefix, file_name) if segment]
+        else:
+            segments = [segment for segment in (oss_prefix, version_dir, file_name) if segment]
+        object_key = "/".join(segments)
         upload_to_oss(
             access_key_id=args.access_key_id,
             access_key_secret=args.access_key_secret,
@@ -94,6 +99,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--bucket", required=True)
     parser.add_argument("--endpoint", required=True)
     parser.add_argument("--prefix", default="")
+    parser.add_argument("--version", required=True)
     parser.add_argument("--access-key-id", required=True)
     parser.add_argument("--access-key-secret", required=True)
     return parser.parse_args()

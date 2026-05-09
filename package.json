@@ -43,6 +43,7 @@
       "target": [
         "zip"
       ],
+      "artifactName": "DeveloperBox-${arch}-mac.${ext}",
       "category": "public.app-category.developer-tools",
       "electronLanguages": [
         "zh-CN",
@@ -51,6 +52,7 @@
       "icon": "assets/icons/AppIcon.icns"
     },
     "win": {
+      "artifactName": "DeveloperBox.${ext}",
       "target": [
         {
           "target": "portable",
