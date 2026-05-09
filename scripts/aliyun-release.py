@@ -75,12 +75,15 @@ def publish(args: argparse.Namespace) -> None:
 
     oss_prefix = normalize_prefix(args.prefix)
     version_dir = args.version.strip("/")
+    if not version_dir:
+        raise RuntimeError("Version directory must not be empty.")
     for file_path in files:
         file_name = file_path.name
-        if file_name == "update.json":
-            segments = [segment for segment in (oss_prefix, file_name) if segment]
-        else:
-            segments = [segment for segment in (oss_prefix, version_dir, file_name) if segment]
+        segments = [oss_prefix]
+        if file_name != "update.json":
+            segments.append(version_dir)
+        segments.append(file_name)
+        segments = [segment for segment in segments if segment]
         object_key = "/".join(segments)
         upload_to_oss(
             access_key_id=args.access_key_id,
