@@ -10,6 +10,7 @@ const { app } = require('electron');
 const UPDATE_URL = 'http://developer-box-update.sakiko.cn/release/update.json';
 const UPDATE_INTERVAL_MS = 12 * 60 * 60 * 1000;
 const TEMP_ROOT_NAME = 'developer-box-update';
+const VERSION_SOURCE_PATH = path.join(__dirname, '..', 'src', 'version.ts');
 
 function createTimeoutSignal(timeoutMs) {
   const controller = new AbortController();
@@ -132,6 +133,26 @@ function getWindowsInstallTargetPath() {
   return app.getPath('exe');
 }
 
+function getWindowsPowerShellPath() {
+  if (process.platform !== 'win32') {
+    return '';
+  }
+
+  const systemRoot = process.env.SystemRoot || 'C:\\Windows';
+  const candidates = [
+    path.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'),
+    path.join(systemRoot, 'Sysnative', 'WindowsPowerShell', 'v1.0', 'powershell.exe'),
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  return 'powershell.exe';
+}
+
 function toPowerShellLiteral(value) {
   return `'${String(value).replace(/'/g, "''")}'`;
 }
@@ -141,7 +162,65 @@ function isFileSystemRoot(targetPath) {
   return normalizedPath === path.parse(normalizedPath).root;
 }
 
+async function spawnDetachedProcess(command, args, options = {}) {
+  await new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true,
+      ...options,
+    });
+
+    let settled = false;
+
+    child.once('error', (error) => {
+      if (settled) return;
+      settled = true;
+      reject(error);
+    });
+
+    child.once('spawn', () => {
+      if (settled) return;
+      settled = true;
+      child.unref();
+      resolve();
+    });
+  });
+}
+
+function readVersionInfoFromSource() {
+  try {
+    const source = fs.readFileSync(VERSION_SOURCE_PATH, 'utf8');
+    const versionMatch = /export const VERSION\s*=\s*['"]([^'"]+)['"]\s*;/.exec(source);
+    const versionCodeMatch = /export const VERSION_CODE\s*=\s*(\d+)\s*;/.exec(source);
+
+    if (!versionMatch || !versionCodeMatch) {
+      throw new Error('版本常量不存在');
+    }
+
+    const currentVersion = normalizeVersionTag(versionMatch[1]);
+    const currentVersionCode = Number(versionCodeMatch[1]);
+
+    if (!currentVersion || currentVersionCode <= 0) {
+      throw new Error('版本常量无效');
+    }
+
+    return {
+      currentVersion,
+      currentVersionCode,
+    };
+  } catch (error) {
+    console.warn(`Failed to read version info from ${VERSION_SOURCE_PATH}`, error);
+    return null;
+  }
+}
+
 function getCurrentVersionInfo() {
+  const sourceVersionInfo = readVersionInfoFromSource();
+  if (sourceVersionInfo) {
+    return sourceVersionInfo;
+  }
+
   const currentVersion = normalizeVersionTag(app.getVersion());
   return {
     currentVersion,
@@ -351,55 +430,124 @@ function createUpdater({ onStateChange } = {}) {
 
   async function createWindowsInstallScript(downloadPath) {
     const targetExePath = getWindowsInstallTargetPath();
+    const powerShellPath = getWindowsPowerShellPath();
     await ensureWritable(targetExePath);
 
     const scriptPath = path.join(path.dirname(downloadPath), 'apply-update.ps1');
+    const logPath = path.join(path.dirname(downloadPath), 'apply-update.log');
     const scriptLines = [
       "$ErrorActionPreference = 'Stop'",
       `$parentPid = ${process.pid}`,
       `$downloadPath = ${toPowerShellLiteral(downloadPath)}`,
       `$targetPath = ${toPowerShellLiteral(targetExePath)}`,
+      `$stagedPath = ${toPowerShellLiteral(`${targetExePath}.new`)}`,
+      `$backupPath = ${toPowerShellLiteral(`${targetExePath}.old`)}`,
+      `$logPath = ${toPowerShellLiteral(logPath)}`,
+      `$launcherPath = ${toPowerShellLiteral(powerShellPath)}`,
+      '',
+      'function Write-Log($message) {',
+      '  $timestamp = Get-Date -Format o',
+      '  Add-Content -LiteralPath $logPath -Value "$timestamp $message" -Encoding UTF8',
+      '}',
+      '',
+      'function Test-FileUnlocked($filePath) {',
+      '  if (-not (Test-Path -LiteralPath $filePath)) {',
+      '    return $true',
+      '  }',
+      '',
+      '  try {',
+      "    $stream = [System.IO.File]::Open($filePath, [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)",
+      '    $stream.Close()',
+      '    return $true',
+      '  } catch {',
+      '    return $false',
+      '  }',
+      '}',
+      '',
+      'function Wait-ForFileUnlock($filePath, $attempts, $delayMs) {',
+      '  for ($attempt = 0; $attempt -lt $attempts; $attempt++) {',
+      '    if (Test-FileUnlocked $filePath) {',
+      '      return $true',
+      '    }',
+      '',
+      '    Start-Sleep -Milliseconds $delayMs',
+      '  }',
+      '',
+      '  return $false',
+      '}',
+      '',
+      'Write-Log "apply update started"',
+      'Write-Log "launcher: $launcherPath"',
+      'Write-Log "download: $downloadPath"',
+      'Write-Log "target: $targetPath"',
       '',
       'try {',
       '  $parentProcess = Get-Process -Id $parentPid -ErrorAction Stop',
       '  $parentProcess.WaitForExit()',
       '} catch [System.ArgumentException] {',
       '} catch {',
+      '  Write-Log "wait parent exit failed: $($_.Exception.Message)"',
       '}',
       '',
+      'try {',
       'Start-Sleep -Milliseconds 500',
       '$targetDir = Split-Path -Parent $targetPath',
       'if (-not (Test-Path -LiteralPath $targetDir)) {',
       '  New-Item -ItemType Directory -Path $targetDir -Force | Out-Null',
       '}',
       '',
+      'if (-not (Test-Path -LiteralPath $downloadPath)) {',
+      '  throw "下载的更新包不存在: $downloadPath"',
+      '}',
+      '',
+      'if (-not (Wait-ForFileUnlock $targetPath 90 1000)) {',
+      '  throw "目标文件长时间被占用，无法替换: $targetPath"',
+      '}',
+      '',
+      'Remove-Item -LiteralPath $stagedPath -Force -ErrorAction SilentlyContinue',
+      'Remove-Item -LiteralPath $backupPath -Force -ErrorAction SilentlyContinue',
+      'Copy-Item -LiteralPath $downloadPath -Destination $stagedPath -Force',
+      'Write-Log "staged update package"',
+      '',
       '$updated = $false',
-      'for ($attempt = 0; $attempt -lt 30 -and -not $updated; $attempt++) {',
+      'for ($attempt = 0; $attempt -lt 5 -and -not $updated; $attempt++) {',
       '  try {',
-      '    Copy-Item -LiteralPath $downloadPath -Destination $targetPath -Force',
+      '    if (Test-Path -LiteralPath $targetPath) {',
+      '      Move-Item -LiteralPath $targetPath -Destination $backupPath -Force',
+      '    }',
+      '    Move-Item -LiteralPath $stagedPath -Destination $targetPath -Force',
       '    $updated = $true',
+      '    Write-Log "replaced target executable"',
       '  } catch {',
+      '    Write-Log "replace attempt failed: $($_.Exception.Message)"',
+      '    if ((Test-Path -LiteralPath $backupPath) -and -not (Test-Path -LiteralPath $targetPath)) {',
+      '      Move-Item -LiteralPath $backupPath -Destination $targetPath -Force -ErrorAction SilentlyContinue',
+      '    }',
       '    Start-Sleep -Seconds 1',
       '  }',
       '}',
       '',
       'if (-not $updated) {',
-      '  exit 1',
+      '  throw "替换目标文件失败: $targetPath"',
       '}',
       '',
+      'Remove-Item -LiteralPath $backupPath -Force -ErrorAction SilentlyContinue',
       'Remove-Item -LiteralPath $downloadPath -Force -ErrorAction SilentlyContinue',
-      'Start-Process -FilePath $targetPath -WorkingDirectory $targetDir | Out-Null',
+      '$process = Start-Process -FilePath $targetPath -WorkingDirectory $targetDir -PassThru -ErrorAction Stop',
+      'Write-Log "restarted application pid=$($process.Id)"',
       'Remove-Item -LiteralPath $PSCommandPath -Force -ErrorAction SilentlyContinue',
+      '} catch {',
+      '  Write-Log "apply update failed: $($_ | Out-String)"',
+      '  exit 1',
+      '}',
       '',
     ];
     await fsp.writeFile(scriptPath, scriptLines.join('\r\n'), 'utf8');
 
-    const child = spawn('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', scriptPath], {
-      detached: true,
-      stdio: 'ignore',
-      windowsHide: true,
-    });
-    child.unref();
+    return {
+      execPath: powerShellPath,
+      args: ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', scriptPath],
+    };
   }
 
   async function createMacInstallScript(downloadPath) {
@@ -459,22 +607,21 @@ function createUpdater({ onStateChange } = {}) {
 
     await fsp.writeFile(scriptPath, scriptLines.join('\n'), { encoding: 'utf8', mode: 0o755 });
 
-    const child = spawn('/bin/sh', [scriptPath], {
+    await spawnDetachedProcess('/bin/sh', [scriptPath], {
       detached: true,
       stdio: 'ignore',
+      windowsHide: false,
     });
-    child.unref();
   }
 
   async function scheduleInstall(downloadPath) {
     if (process.platform === 'win32') {
-      await createWindowsInstallScript(downloadPath);
-      return;
+      return createWindowsInstallScript(downloadPath);
     }
 
     if (process.platform === 'darwin' && process.arch === 'arm64') {
       await createMacInstallScript(downloadPath);
-      return;
+      return null;
     }
 
     throw new Error('当前系统暂不支持自动更新');
@@ -518,8 +665,11 @@ function createUpdater({ onStateChange } = {}) {
         progress: 100,
       });
 
-      await scheduleInstall(downloadPath);
-      setImmediate(() => app.quit());
+      const relaunchOptions = await scheduleInstall(downloadPath);
+      if (relaunchOptions) {
+        app.relaunch(relaunchOptions);
+      }
+      setImmediate(() => app.exit(0));
       return { status: 'applying', state: getState() };
     } catch (error) {
       setState({
