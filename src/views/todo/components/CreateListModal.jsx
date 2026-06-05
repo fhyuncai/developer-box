@@ -33,7 +33,7 @@ export default function CreateListModal({ open, onClose, onCreate }) {
       okText="创建"
       cancelText="取消"
       okButtonProps={{ disabled: !title.trim() }}
-      destroyOnClose
+      destroyOnHidden
     >
       <Flex vertical gap={12} style={{ marginTop: 16 }}>
         <Input

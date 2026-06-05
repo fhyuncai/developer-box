@@ -216,7 +216,7 @@ export default function TranslationPage({ aiConfigSummary, onBack, onBackHome })
                     <Select value={targetLang} onChange={setTargetLang} options={BAIDU_LANG_OPTIONS.filter((item) => item.value !== 'auto')} style={{ width: 160 }} />
                   </Flex>
                   {renderActionButtons({
-                    submitLabel: '开始翻译',
+                    submitLabel: '翻译',
                     submitLoading: standardLoading,
                     onSubmit: handleStandardTranslate,
                     onClear: () => {
@@ -301,7 +301,7 @@ export default function TranslationPage({ aiConfigSummary, onBack, onBackHome })
       />
 
       <Drawer
-        title="百度翻译配置"
+        title="翻译配置"
         open={configOpen}
         onClose={() => setConfigOpen(false)}
         width={420}
@@ -314,15 +314,15 @@ export default function TranslationPage({ aiConfigSummary, onBack, onBackHome })
         }}
         extra={<Button type="primary" onClick={handleSaveBaiduConfig}>保存</Button>}
       >
-        <Typography.Paragraph type="secondary" style={{ marginTop: 0 }}>
-          AI 翻译相关配置请在全局设置中配置
-        </Typography.Paragraph>
         <Form form={form} layout="vertical">
-          <Form.Item label="App ID" name="appId" rules={[{ required: true, message: '请输入百度翻译 App ID' }]}>
-            <Input placeholder="百度翻译 App ID" allowClear />
+          <Typography.Paragraph strong style={{ marginTop: 12, marginBottom: 12 }}>
+            百度翻译 API
+          </Typography.Paragraph>
+          <Form.Item label="App ID" name="appId">
+            <Input placeholder="20260000000000000" allowClear />
           </Form.Item>
           <Form.Item
-            label={`API Key${baiduConfigState.hasApiKey ? '（已存在，留空则保留）' : ''}`}
+            label="API Key"
             name="apiKey"
             rules={[
               {
@@ -335,11 +335,14 @@ export default function TranslationPage({ aiConfigSummary, onBack, onBackHome })
               },
             ]}
           >
-            <Input.Password placeholder="百度翻译 API Key" allowClear />
+            <Input.Password placeholder={baiduConfigState.hasApiKey ? "已配置，留空表示不改动当前 Key" : "xxxxxx "} allowClear />
           </Form.Item>
-          <Typography.Text type="secondary">
-            配置仅用于标准翻译
-          </Typography.Text>
+          <Typography.Paragraph strong style={{ marginTop: 24, marginBottom: 12 }}>
+            AI 翻译 API
+          </Typography.Paragraph>
+          <Typography.Paragraph type="secondary">
+            请在全局设置中配置
+          </Typography.Paragraph>
         </Form>
       </Drawer>
     </section>

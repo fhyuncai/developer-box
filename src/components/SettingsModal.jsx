@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { App as AntdApp } from 'antd';
-import { AutoComplete, Button, Divider, Flex, Form, Input, Modal, Radio, Select, Tag, Typography } from 'antd';
+import { AutoComplete, Button, Divider, Flex, Space, Form, Input, Modal, Radio, Select, Tag, Typography } from 'antd';
 import { VERSION } from '../version';
 
 function formatCheckedAt(timestamp) {
@@ -102,7 +102,7 @@ export default function SettingsModal({
       open={open}
       onCancel={onClose}
       footer={null}
-      destroyOnClose
+      destroyOnHidden
     >
       <Flex vertical gap={12}>
         <Typography.Text strong>主题模式</Typography.Text>
@@ -115,7 +115,7 @@ export default function SettingsModal({
           当前生效：{effectiveTheme === 'dark' ? '深色' : '浅色'}
         </Typography.Text>
         <Divider size="small" />
-        <Typography.Text strong>AI 功能</Typography.Text>
+        <Typography.Text strong>AI 配置</Typography.Text>
         <Form form={form} layout="vertical">
           <Form.Item label="API 类型" name="apiFormat">
             <Select
@@ -125,29 +125,30 @@ export default function SettingsModal({
                 applyProviderFields(value);
               }}
               options={[
-                { value: 'openai', label: 'OpenAI 兼容' },
+                { value: 'openai', label: 'OpenAI Compatible' },
                 { value: 'anthropic', label: 'Anthropic' },
               ]}
             />
           </Form.Item>
 
-          <Form.Item label="Base URL" name="baseUrl" rules={[{ required: true, message: '请输入 Base URL' }]}>
+          <Form.Item label="Base URL" name="baseUrl">
             <Input allowClear placeholder="https://api.openai.com/v1" />
           </Form.Item>
 
           <Form.Item
-            label={`API Key ${aiConfigSummary?.[apiFormat]?.hasApiKey ? `（已配置）` : '（未配置）'}`}
+            label="API Key"
             name="apiKey"
           >
-            <Input.Password allowClear placeholder="留空表示不改动当前 Key" />
+            <Input.Password allowClear placeholder={aiConfigSummary?.[apiFormat]?.hasApiKey ? "已配置，留空表示不改动当前 Key" : "sk-xxxxxx "} />
           </Form.Item>
 
-          <Form.Item label="Model ID" required>
+          <Form.Item label="Model ID">
             <Flex gap={8} align="center">
               <Form.Item name="model" rules={[{ required: true, message: '请输入 Model' }]} style={{ marginBottom: 0, flex: 1 }}>
                 <AutoComplete
                   options={modelOptions}
                   filterOption={(inputValue, option) => String(option?.label || '').toLowerCase().includes(inputValue.toLowerCase())}
+                  placeholder="gpt-5.3"
                   allowClear
                 />
               </Form.Item>
@@ -157,14 +158,14 @@ export default function SettingsModal({
             </Flex>
           </Form.Item>
 
-          <Flex justify="flex-end">
-            <Button type="primary" onClick={handleSaveAi} disabled={!aiConfigSummary?.secureStorageAvailable}>保存 AI 配置</Button>
-          </Flex>
-          {!aiConfigSummary?.secureStorageAvailable && (
-            <Typography.Text type="danger">
-              当前系统安全存储不可用，暂时无法保存 AI 凭证。
-            </Typography.Text>
-          )}
+          <Space>
+            <Button type="primary" onClick={handleSaveAi} disabled={!aiConfigSummary?.secureStorageAvailable}>保存</Button>
+            {!aiConfigSummary?.secureStorageAvailable && (
+              <Typography.Text type="danger">
+                当前系统安全存储不可用，暂时无法保存 AI 凭证
+              </Typography.Text>
+            )}
+          </Space>
         </Form>
         <Divider size="small" />
         <Typography.Text strong>关于</Typography.Text>

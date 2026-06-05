@@ -315,7 +315,12 @@ body {
 
 .ant-modal-root {
   .ant-modal-wrap {
-    padding-top: calc(var(--titlebar-height) + 8px);
+    margin-top: var(--titlebar-height);
+  }
+
+  .ant-modal {
+    top: 50px;
+    padding-bottom: 50px;
   }
 }
 
@@ -333,6 +338,10 @@ body,
 .ant-list-item {
   -webkit-user-select: none;
   user-select: none;
+}
+
+.ant-form .ant-form-css-var {
+  --ant-form-item-margin-bottom: 12px;
 }
 
 input,

@@ -128,7 +128,6 @@ async function callOpenAi({ config, apiKey, systemPrompt, userPrompt, temperatur
       headers: {
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
-        ...(config.organization ? { 'OpenAI-Organization': config.organization } : {}),
       },
     })));
 
@@ -143,7 +142,7 @@ async function callOpenAi({ config, apiKey, systemPrompt, userPrompt, temperatur
       text: content,
     };
   } catch (error) {
-    throw new Error(formatAxiosError(error, '调用 OpenAI 兼容接口失败'));
+    throw new Error(formatAxiosError(error, '调用 OpenAI Completion 接口失败'));
   }
 }
 

@@ -760,7 +760,6 @@ export default function JsonTool() {
         onCancel={closeModal}
         footer={null}
         width="90%"
-        style={{ top: 16 }}
         styles={{ body: TREE_MODAL_BODY_STYLE }}
         focusTriggerAfterClose={false}
         destroyOnHidden

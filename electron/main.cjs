@@ -26,7 +26,7 @@ const DEFAULT_AI_SECURE_CONFIG = {
   defaultProvider: 'openai',
   openai: {
     baseUrl: 'https://api.openai.com/v1',
-    model: 'gpt-4.1-mini',
+    model: '',
     organization: '',
     apiKey: '',
   },
@@ -41,8 +41,17 @@ const DEFAULT_BAIDU_SECURE_CONFIG = {
   apiKey: '',
 };
 
+function logSecureConfigReadWarning(namespace, error) {
+  console.warn(`[secure-store] Failed to read namespace "${namespace}", fallback to defaults.`, error?.message || error);
+}
+
 async function getAiSecureConfig() {
-  return readSecureNamespace(SECURE_STORE_FILE, 'ai', DEFAULT_AI_SECURE_CONFIG);
+  try {
+    return await readSecureNamespace(SECURE_STORE_FILE, 'ai', DEFAULT_AI_SECURE_CONFIG);
+  } catch (error) {
+    logSecureConfigReadWarning('ai', error);
+    return { ...DEFAULT_AI_SECURE_CONFIG };
+  }
 }
 
 function toAiSummary(config = DEFAULT_AI_SECURE_CONFIG) {
@@ -66,7 +75,12 @@ function toAiSummary(config = DEFAULT_AI_SECURE_CONFIG) {
 }
 
 async function getBaiduSecureConfig() {
-  return readSecureNamespace(SECURE_STORE_FILE, 'baidu-translate', DEFAULT_BAIDU_SECURE_CONFIG);
+  try {
+    return await readSecureNamespace(SECURE_STORE_FILE, 'baidu-translate', DEFAULT_BAIDU_SECURE_CONFIG);
+  } catch (error) {
+    logSecureConfigReadWarning('baidu-translate', error);
+    return { ...DEFAULT_BAIDU_SECURE_CONFIG };
+  }
 }
 
 function buildAiTranslatePrompts({ sourceLanguage, targetLanguage, text }) {

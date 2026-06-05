@@ -62,7 +62,7 @@ const DEFAULT_AI_CONFIG_SUMMARY = {
   defaultProvider: 'openai',
   openai: {
     baseUrl: 'https://api.openai.com/v1',
-    model: 'gpt-4.1-mini',
+    model: '',
     organization: '',
     hasApiKey: false,
     maskedApiKey: '',
