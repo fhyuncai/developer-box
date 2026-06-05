@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Badge, Button, Tooltip } from 'antd';
 import { PushpinFilled, PushpinOutlined, SettingOutlined, MinusOutlined, BorderOutlined, CloseOutlined } from '@ant-design/icons';
+import TitleTabs from './TitleTabs';
 
-export default function TitleBar({ onOpenSettings, hasUpdateDot = false }) {
+export default function TitleBar({ tabs = [], activeTabId, onActivateTab, onCloseTab, onOpenSettings, hasUpdateDot = false }) {
   const [pinned, setPinned] = useState(false);
   const [isMac, setIsMac] = useState(true);
   const [isMaximized, setIsMaximized] = useState(false);
@@ -28,7 +29,18 @@ export default function TitleBar({ onOpenSettings, hasUpdateDot = false }) {
     <div className="titlebar">
       {isMac && <div className="titlebar-traffic-zone" />}
 
-      <span className="titlebar-title">Developer Box</span>
+      <div className="titlebar-brand-zone">
+        <span className="titlebar-title">Developer Box</span>
+      </div>
+
+      <div className="titlebar-center-slot">
+        <TitleTabs
+          tabs={tabs}
+          activeTabId={activeTabId}
+          onActivateTab={onActivateTab}
+          onCloseTab={onCloseTab}
+        />
+      </div>
 
       <div className="titlebar-actions">
         <Tooltip title="设置" placement="bottom" zIndex={9999}>

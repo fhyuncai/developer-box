@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { App as AntdApp, ConfigProvider, message, theme } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import dayjs from 'dayjs';
@@ -8,6 +8,7 @@ import NotesPage from './views/notes';
 import ToolboxPage from './views/toolbox';
 import TodoListsPage from './views/todo';
 import CheckinPage from './views/checkin';
+import TranslationPage from './views/translation';
 import ToolPage from './views/toolbox/components/ToolPage';
 import TitleBar from './components/TitleBar';
 import SettingsModal from './components/SettingsModal';
@@ -47,6 +48,32 @@ const TOOLS = [
   { key: 'cron', title: 'Crontab 表达式', description: '解析描述 + 预览下次执行时间', group: '时间 / 日期' },
   { key: 'subnet', title: '子网计算器', description: '支持 IPv4 / IPv6，自动计算网络范围', group: '网络工具' },
 ];
+const TOOL_TITLE_MAP = new Map(TOOLS.map((tool) => [tool.key, tool.title]));
+const PAGE_META = {
+  home: { title: '首页', closable: false, parentPageKey: null },
+  notes: { title: '笔记本', closable: true, parentPageKey: 'home' },
+  toolbox: { title: '工具箱', closable: true, parentPageKey: 'home' },
+  'todo-list': { title: 'Todo List', closable: true, parentPageKey: 'home' },
+  checkin: { title: '健康打卡', closable: true, parentPageKey: 'home' },
+  translation: { title: '翻译', closable: true, parentPageKey: 'home' },
+};
+const DEFAULT_AI_CONFIG_SUMMARY = {
+  secureStorageAvailable: false,
+  defaultProvider: 'openai',
+  openai: {
+    baseUrl: 'https://api.openai.com/v1',
+    model: 'gpt-4.1-mini',
+    organization: '',
+    hasApiKey: false,
+    maskedApiKey: '',
+  },
+  anthropic: {
+    baseUrl: 'https://api.anthropic.com',
+    model: 'claude-3-5-sonnet-latest',
+    hasApiKey: false,
+    maskedApiKey: '',
+  },
+};
 const DASHBOARD_ITEMS = [
   { key: 'doneCount', label: '已完成任务' },
 ];
@@ -96,6 +123,33 @@ function migrateOldTodos(loaded) {
   return [{ id: 'migrated-default', title: '我的 Todo', items: loaded, startDate: null, dueDate: null, createdAt: Date.now() }];
 }
 
+function createPageTab(pageKey) {
+  const meta = PAGE_META[pageKey] || PAGE_META.home;
+  return {
+    id: pageKey,
+    kind: 'page',
+    pageKey,
+    title: meta.title,
+    closable: meta.closable,
+    parentPageKey: meta.parentPageKey,
+  };
+}
+
+function normalizeAiConfigSummary(summary) {
+  return {
+    ...DEFAULT_AI_CONFIG_SUMMARY,
+    ...(summary || {}),
+    openai: {
+      ...DEFAULT_AI_CONFIG_SUMMARY.openai,
+      ...(summary?.openai || {}),
+    },
+    anthropic: {
+      ...DEFAULT_AI_CONFIG_SUMMARY.anthropic,
+      ...(summary?.anthropic || {}),
+    },
+  };
+}
+
 export default function App() {
   const [themeMode, setThemeMode] = useState('system');
   const [systemTheme, setSystemTheme] = useState('light');
@@ -105,9 +159,107 @@ export default function App() {
   const [pinnedBoards, setPinnedBoards] = useState(DEFAULT_PINNED);
   const [dashboardOrder, setDashboardOrder] = useState(DEFAULT_DASHBOARD_ORDER);
   const [checkins, setCheckins] = useState(DEFAULT_CHECKINS);
-  const [pageStack, setPageStack] = useState(['home']);
+  const [tabs, setTabs] = useState([createPageTab('home')]);
+  const [activeTabId, setActiveTabId] = useState('home');
   const [updateState, setUpdateState] = useState(DEFAULT_UPDATE_STATE);
+  const [aiConfigSummary, setAiConfigSummary] = useState(DEFAULT_AI_CONFIG_SUMMARY);
   const [messageApi, messageContextHolder] = message.useMessage();
+  const toolTabCounterRef = useRef(0);
+
+  const activeTab = useMemo(
+    () => tabs.find((tab) => tab.id === activeTabId) || tabs[0] || createPageTab('home'),
+    [tabs, activeTabId]
+  );
+
+  const activateHomeTab = () => {
+    setActiveTabId('home');
+  };
+
+  const activateTab = (tabId) => {
+    setActiveTabId(tabId);
+  };
+
+  const findExistingPageTab = (pageKey) => tabs.find((tab) => tab.kind === 'page' && tab.pageKey === pageKey);
+
+  const activatePageTabIfExists = (pageKey) => {
+    const target = findExistingPageTab(pageKey);
+    if (!target) {
+      return false;
+    }
+    setActiveTabId(target.id);
+    return true;
+  };
+
+  const ensurePageTab = (pageKey) => {
+    if (!PAGE_META[pageKey]) {
+      return;
+    }
+
+    const existing = findExistingPageTab(pageKey);
+    if (existing) {
+      setActiveTabId(existing.id);
+      return;
+    }
+
+    const nextTab = createPageTab(pageKey);
+    setTabs((prev) => [...prev, nextTab]);
+    setActiveTabId(nextTab.id);
+  };
+
+  const activateParentPageOrHome = (pageKey) => {
+    if (!pageKey || !activatePageTabIfExists(pageKey)) {
+      activateHomeTab();
+    }
+  };
+
+  const createToolTab = (toolKey) => {
+    const toolTitle = TOOL_TITLE_MAP.get(toolKey);
+    if (!toolTitle) {
+      return;
+    }
+
+    toolTabCounterRef.current += 1;
+    const nextTab = {
+      id: `tool-${toolKey}-${Date.now()}-${toolTabCounterRef.current}`,
+      kind: 'tool',
+      pageKey: toolKey,
+      title: toolTitle,
+      closable: true,
+      parentPageKey: 'toolbox',
+    };
+
+    setTabs((prev) => [...prev, nextTab]);
+    setActiveTabId(nextTab.id);
+  };
+
+  const closeTab = (tabId) => {
+    if (tabId === 'home') {
+      return;
+    }
+
+    setTabs((prev) => {
+      const targetIndex = prev.findIndex((tab) => tab.id === tabId);
+      if (targetIndex < 0) {
+        return prev;
+      }
+
+      const nextTabs = prev.filter((tab) => tab.id !== tabId);
+
+      setActiveTabId((currentActiveId) => {
+        if (currentActiveId !== tabId) {
+          return currentActiveId;
+        }
+        const fallbackTab = nextTabs[targetIndex] || nextTabs[targetIndex - 1] || nextTabs[0] || createPageTab('home');
+        return fallbackTab.id;
+      });
+
+      return nextTabs;
+    });
+  };
+
+  const goToParentTab = (tab) => {
+    activateParentPageOrHome(tab?.parentPageKey);
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -117,12 +269,13 @@ export default function App() {
     let unsubscribeUpdateState = null;
 
     async function bootstrap() {
-      const [settings, list, sysTheme, noteList, nextUpdateState] = await Promise.all([
+      const [settings, list, sysTheme, noteList, nextUpdateState, nextAiSummary] = await Promise.all([
         window.developerBox.getSettings(),
         window.developerBox.getTodos(),
         window.developerBox.getSystemTheme(),
         window.developerBox.listNotes(),
         window.developerBox.getUpdateState(),
+        window.developerBox.getAiConfigSummary(),
       ]);
 
       if (!mounted) {
@@ -139,6 +292,7 @@ export default function App() {
       setNotes(Array.isArray(noteList) ? noteList : []);
       setSystemTheme(sysTheme);
       setUpdateState(nextUpdateState || DEFAULT_UPDATE_STATE);
+      setAiConfigSummary(normalizeAiConfigSummary(nextAiSummary));
 
       unsubscribeTheme = window.developerBox.onSystemThemeChange((value) => {
         setSystemTheme(value);
@@ -153,7 +307,7 @@ export default function App() {
       });
 
       unsubscribeCheckinNotification = window.developerBox.onOpenCheckinFromNotification(() => {
-        goToPage('checkin');
+        ensurePageTab('checkin');
       });
     }
 
@@ -255,35 +409,104 @@ export default function App() {
     }
   };
 
-  const currentPage = pageStack[pageStack.length - 1] || 'home';
+  const handleSaveAiConfig = async (payload) => {
+    try {
+      const nextSummary = await window.developerBox.saveAiConfig(payload);
+      const normalized = normalizeAiConfigSummary(nextSummary);
+      setAiConfigSummary(normalized);
+      messageApi.success('AI 配置已保存');
+      return normalized;
+    } catch (error) {
+      messageApi.error(error?.message || '保存 AI 配置失败');
+      throw error;
+    }
+  };
 
   useEffect(() => {
     const scrollTarget = document.querySelector('.page-wrap');
     if (scrollTarget) {
       scrollTarget.scrollTo({ top: 0, left: 0, behavior: 'auto' });
     }
-  }, [currentPage]);
+  }, [activeTabId, activeTab.pageKey]);
 
-  const goToPage = (nextPage) => {
-    setPageStack((prev) => {
-      const current = prev[prev.length - 1];
-      if (current === nextPage) {
-        return prev;
-      }
-      return [...prev, nextPage];
-    });
-  };
+  const renderTabPane = (tab) => {
+    if (tab.pageKey === 'home') {
+      return (
+        <HomePage
+          pinnedBoards={pinnedBoards}
+          dashboardOrder={dashboardOrder}
+          dashboardItems={DASHBOARD_ITEMS}
+          doneCount={doneCount}
+          notes={notes}
+          onDashboardConfigChange={handleDashboardConfigChange}
+          onOpenPage={ensurePageTab}
+        />
+      );
+    }
 
-  const goBack = () => {
-    setPageStack((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev));
-  };
+    if (tab.pageKey === 'notes') {
+      return (
+        <NotesPage
+          initialNotes={notes}
+          onNotesChange={setNotes}
+          onBack={() => goToParentTab(tab)}
+          onBackHome={activateHomeTab}
+        />
+      );
+    }
 
-  const goHome = () => {
-    setPageStack(['home']);
-  };
+    if (tab.pageKey === 'toolbox') {
+      return (
+        <ToolboxPage
+          tools={TOOLS}
+          onBack={() => goToParentTab(tab)}
+          onBackHome={activateHomeTab}
+          onOpenTool={createToolTab}
+        />
+      );
+    }
 
-  const goToolbox = () => {
-    setPageStack(['home', 'toolbox']);
+    if (tab.pageKey === 'todo-list') {
+      return (
+        <TodoListsPage
+          todoLists={todoLists}
+          onTodoListsChange={handleTodoListsChange}
+          onBack={() => goToParentTab(tab)}
+          onBackHome={activateHomeTab}
+        />
+      );
+    }
+
+    if (tab.pageKey === 'checkin') {
+      return (
+        <CheckinPage
+          checkins={checkins}
+          onCheckinsChange={handleCheckinsChange}
+          onBack={() => goToParentTab(tab)}
+          onBackHome={activateHomeTab}
+        />
+      );
+    }
+
+    if (tab.pageKey === 'translation') {
+      return (
+        <TranslationPage
+          aiConfigSummary={aiConfigSummary}
+          onBack={() => goToParentTab(tab)}
+          onBackHome={activateHomeTab}
+        />
+      );
+    }
+
+    return (
+      <ToolPage
+        toolKey={tab.pageKey}
+        toolTitle={TOOL_TITLE_MAP.get(tab.pageKey) ?? tab.title}
+        onBack={() => goToParentTab(tab)}
+        onBackToolbox={() => activateParentPageOrHome('toolbox')}
+        onBackHome={activateHomeTab}
+      />
+    );
   };
 
   return (
@@ -291,65 +514,24 @@ export default function App() {
       <AntdApp>
         {messageContextHolder}
         <div className="app-shell">
-          <TitleBar onOpenSettings={() => setSettingsOpen(true)} hasUpdateDot={updateState.hasUpdate} />
+          <TitleBar
+            tabs={tabs}
+            activeTabId={activeTabId}
+            onActivateTab={activateTab}
+            onCloseTab={closeTab}
+            onOpenSettings={() => setSettingsOpen(true)}
+            hasUpdateDot={updateState.hasUpdate}
+          />
           <main className="page-wrap">
-            {currentPage === 'home' && (
-              <HomePage
-                pinnedBoards={pinnedBoards}
-                dashboardOrder={dashboardOrder}
-                dashboardItems={DASHBOARD_ITEMS}
-                doneCount={doneCount}
-                notes={notes}
-                onDashboardConfigChange={handleDashboardConfigChange}
-                onOpenPage={(pageKey) => goToPage(pageKey)}
-              />
-            )}
-
-            {currentPage === 'notes' && (
-              <NotesPage
-                initialNotes={notes}
-                onNotesChange={setNotes}
-                onBack={goBack}
-                onBackHome={goHome}
-              />
-            )}
-
-            {currentPage === 'toolbox' && (
-              <ToolboxPage
-                tools={TOOLS}
-                onBack={goBack}
-                onBackHome={goHome}
-                onOpenTool={(toolKey) => goToPage(toolKey)}
-              />
-            )}
-
-            {currentPage === 'todo-list' && (
-              <TodoListsPage
-                todoLists={todoLists}
-                onTodoListsChange={handleTodoListsChange}
-                onBack={goBack}
-                onBackHome={goHome}
-              />
-            )}
-
-            {currentPage === 'checkin' && (
-              <CheckinPage
-                checkins={checkins}
-                onCheckinsChange={handleCheckinsChange}
-                onBack={goBack}
-                onBackHome={goHome}
-              />
-            )}
-
-            {!['home', 'notes', 'toolbox', 'todo-list', 'checkin'].includes(currentPage) && (
-              <ToolPage
-                toolKey={currentPage}
-                toolTitle={TOOLS.find((tool) => tool.key === currentPage)?.title ?? ''}
-                onBack={goBack}
-                onBackToolbox={goToolbox}
-                onBackHome={goHome}
-              />
-            )}
+            {tabs.map((tab) => (
+              <div
+                key={tab.id}
+                className={`page-pane${tab.id === activeTabId ? ' is-active' : ''}`}
+                style={{ display: tab.id === activeTabId ? 'block' : 'none' }}
+              >
+                {renderTabPane(tab)}
+              </div>
+            ))}
 
             <SettingsModal
               open={settingsOpen}
@@ -357,6 +539,8 @@ export default function App() {
               themeMode={themeMode}
               effectiveTheme={effectiveTheme}
               onThemeModeChange={handleThemeModeChange}
+              aiConfigSummary={aiConfigSummary}
+              onSaveAiConfig={handleSaveAiConfig}
               updateState={updateState}
               onCheckForUpdates={handleCheckForUpdates}
               onStartUpdate={handleStartUpdate}

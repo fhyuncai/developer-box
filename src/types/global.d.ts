@@ -1,11 +1,54 @@
 export {};
 
 declare global {
+  type AiProvider = 'openai' | 'anthropic';
+
   type DeveloperBoxSettings = {
     themeMode: 'system' | 'light' | 'dark';
     pinnedBoards?: string[];
     dashboardOrder?: string[];
     checkins?: Array<Record<string, unknown>>;
+  };
+
+  type AiProviderSummary = {
+    baseUrl: string;
+    model: string;
+    organization?: string;
+    hasApiKey: boolean;
+    maskedApiKey: string;
+  };
+
+  type AiConfigSummary = {
+    secureStorageAvailable: boolean;
+    defaultProvider: AiProvider;
+    openai: AiProviderSummary;
+    anthropic: AiProviderSummary;
+  };
+
+  type AiConfigPayload = {
+    defaultProvider: AiProvider;
+    openai: {
+      baseUrl: string;
+      model: string;
+      organization?: string;
+      apiKey?: string;
+    };
+    anthropic: {
+      baseUrl: string;
+      model: string;
+      apiKey?: string;
+    };
+  };
+
+  type AiModelOption = {
+    value: string;
+    label: string;
+  };
+
+  type BaiduTranslateConfig = {
+    appId?: string;
+    apiKey?: string;
+    hasApiKey?: boolean;
   };
 
   type AppUpdateState = {
@@ -59,6 +102,14 @@ declare global {
       chooseDirectory: (payload?: { title?: string; defaultPath?: string }) => Promise<string>;
       getSettings: () => Promise<DeveloperBoxSettings>;
       saveSettings: (settings: DeveloperBoxSettings) => Promise<DeveloperBoxSettings>;
+      getAiConfigSummary: () => Promise<AiConfigSummary>;
+      saveAiConfig: (payload: AiConfigPayload) => Promise<AiConfigSummary>;
+      listAiModels: (payload: { provider: AiProvider; baseUrl?: string; apiKey?: string }) => Promise<AiModelOption[]>;
+      getBaiduTranslateConfig: () => Promise<BaiduTranslateConfig>;
+      saveBaiduTranslateConfig: (payload: BaiduTranslateConfig) => Promise<BaiduTranslateConfig>;
+      translateWithBaidu: (payload: { text: string; from?: string; to?: string }) => Promise<{ text: string; provider: 'baidu'; detectedSourceLanguage: string; targetLanguage: string }>;
+      translateWithAi: (payload: { provider?: AiProvider; sourceLanguage?: string; targetLanguage?: string; text: string }) => Promise<{ text: string; provider: AiProvider; model: string }>;
+      generateVariableName: (payload: { provider?: AiProvider; text: string; style: string }) => Promise<{ text: string; provider: AiProvider; model: string }>;
       getTodos: () => Promise<any[]>;
       saveTodos: (todos: any[]) => Promise<any[]>;
       listNotes: () => Promise<NoteSummary[]>;

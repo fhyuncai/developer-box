@@ -23,6 +23,11 @@ const HOME_MENU_ITEMS = [
     key: 'checkin',
     title: '健康打卡',
     description: '建立良好习惯'
+  },
+  {
+    key: 'translation',
+    title: '翻译',
+    description: '多语言翻译与变量命名'
   }
 ];
 

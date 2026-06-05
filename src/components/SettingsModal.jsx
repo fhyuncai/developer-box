@@ -1,4 +1,6 @@
-import { Button, Divider, Flex, Modal, Radio, Tag, Typography } from 'antd';
+import { useEffect, useState } from 'react';
+import { App as AntdApp } from 'antd';
+import { AutoComplete, Button, Divider, Flex, Form, Input, Modal, Radio, Select, Tag, Typography } from 'antd';
 import { VERSION } from '../version';
 
 function formatCheckedAt(timestamp) {
@@ -12,11 +14,87 @@ export default function SettingsModal({
   themeMode,
   effectiveTheme,
   onThemeModeChange,
+  aiConfigSummary,
+  onSaveAiConfig,
   updateState,
   onCheckForUpdates,
   onStartUpdate,
 }) {
+  const { message } = AntdApp.useApp();
   const checkedAtText = formatCheckedAt(updateState?.lastCheckedAt);
+  const [form] = Form.useForm();
+  const [apiFormat, setApiFormat] = useState(aiConfigSummary?.defaultProvider || 'openai');
+  const [modelOptions, setModelOptions] = useState([]);
+  const [modelLoading, setModelLoading] = useState(false);
+
+  const applyProviderFields = (provider) => {
+    const summary = aiConfigSummary?.[provider] || {};
+    form.setFieldsValue({
+      apiFormat: provider,
+      baseUrl: summary.baseUrl || '',
+      model: summary.model || '',
+      apiKey: '',
+    });
+    setModelOptions([]);
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const provider = aiConfigSummary?.defaultProvider || 'openai';
+    setApiFormat(provider);
+    applyProviderFields(provider);
+  }, [aiConfigSummary, form, open]);
+
+  const handleLoadModels = async () => {
+    try {
+      const values = form.getFieldsValue(['apiFormat', 'baseUrl', 'apiKey']);
+      setModelLoading(true);
+      const list = await window.developerBox.listAiModels({
+        provider: values.apiFormat || apiFormat,
+        baseUrl: values.baseUrl,
+        apiKey: values.apiKey,
+      });
+      setModelOptions(Array.isArray(list) ? list : []);
+      if (!list?.length) {
+        message.warning('未查询到可用模型');
+      } else {
+        message.success(`已获取 ${list.length} 个模型`);
+      }
+    } catch (error) {
+      message.error(error?.message || '获取模型列表失败');
+    } finally {
+      setModelLoading(false);
+    }
+  };
+
+  const handleSaveAi = async () => {
+    try {
+      const values = await form.validateFields();
+      await onSaveAiConfig?.({
+        defaultProvider: values.apiFormat,
+        ...(values.apiFormat === 'openai'
+          ? {
+              openai: {
+                baseUrl: values.baseUrl,
+                model: values.model,
+                apiKey: values.apiKey,
+              },
+            }
+          : {
+              anthropic: {
+                baseUrl: values.baseUrl,
+                model: values.model,
+                apiKey: values.apiKey,
+              },
+            }),
+      });
+      form.setFieldsValue({
+        apiKey: '',
+      });
+    } catch {
+      // 提示由上层处理
+    }
+  };
 
   return (
     <Modal
@@ -36,6 +114,58 @@ export default function SettingsModal({
         <Typography.Text type="secondary">
           当前生效：{effectiveTheme === 'dark' ? '深色' : '浅色'}
         </Typography.Text>
+        <Divider size="small" />
+        <Typography.Text strong>AI 功能</Typography.Text>
+        <Form form={form} layout="vertical">
+          <Form.Item label="API 类型" name="apiFormat">
+            <Select
+              value={apiFormat}
+              onChange={(value) => {
+                setApiFormat(value);
+                applyProviderFields(value);
+              }}
+              options={[
+                { value: 'openai', label: 'OpenAI 兼容' },
+                { value: 'anthropic', label: 'Anthropic' },
+              ]}
+            />
+          </Form.Item>
+
+          <Form.Item label="Base URL" name="baseUrl" rules={[{ required: true, message: '请输入 Base URL' }]}>
+            <Input allowClear placeholder="https://api.openai.com/v1" />
+          </Form.Item>
+
+          <Form.Item
+            label={`API Key ${aiConfigSummary?.[apiFormat]?.hasApiKey ? `（已配置）` : '（未配置）'}`}
+            name="apiKey"
+          >
+            <Input.Password allowClear placeholder="留空表示不改动当前 Key" />
+          </Form.Item>
+
+          <Form.Item label="Model ID" required>
+            <Flex gap={8} align="center">
+              <Form.Item name="model" rules={[{ required: true, message: '请输入 Model' }]} style={{ marginBottom: 0, flex: 1 }}>
+                <AutoComplete
+                  options={modelOptions}
+                  filterOption={(inputValue, option) => String(option?.label || '').toLowerCase().includes(inputValue.toLowerCase())}
+                  allowClear
+                />
+              </Form.Item>
+              <Button loading={modelLoading} onClick={handleLoadModels}>
+                获取模型列表
+              </Button>
+            </Flex>
+          </Form.Item>
+
+          <Flex justify="flex-end">
+            <Button type="primary" onClick={handleSaveAi} disabled={!aiConfigSummary?.secureStorageAvailable}>保存 AI 配置</Button>
+          </Flex>
+          {!aiConfigSummary?.secureStorageAvailable && (
+            <Typography.Text type="danger">
+              当前系统安全存储不可用，暂时无法保存 AI 凭证。
+            </Typography.Text>
+          )}
+        </Form>
         <Divider size="small" />
         <Typography.Text strong>关于</Typography.Text>
         <Flex align="center" gap={0} wrap>

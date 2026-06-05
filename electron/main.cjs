@@ -3,6 +3,9 @@ const path = require('path');
 const os = require('os');
 const fs = require('fs/promises');
 const { createUpdater } = require('./updater.cjs');
+const { isSecureStorageAvailable, readSecureNamespace, writeSecureNamespace, maskSecret } = require('./secure-store.cjs');
+const { invokeAiProvider, listAiModels } = require('./ai-client.cjs');
+const { translateWithBaidu } = require('./baidu-translate.cjs');
 const {
   initializeNotesDatabase,
   getDatabaseFilePath,
@@ -18,6 +21,69 @@ const {
 const DATA_DIR = path.join(os.homedir(), '.developer-box');
 const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
 const TODOS_FILE = path.join(DATA_DIR, 'todos.json');
+const SECURE_STORE_FILE = path.join(DATA_DIR, 'secure-store.json');
+const DEFAULT_AI_SECURE_CONFIG = {
+  defaultProvider: 'openai',
+  openai: {
+    baseUrl: 'https://api.openai.com/v1',
+    model: 'gpt-4.1-mini',
+    organization: '',
+    apiKey: '',
+  },
+  anthropic: {
+    baseUrl: 'https://api.anthropic.com',
+    model: 'claude-3-5-sonnet-latest',
+    apiKey: '',
+  },
+};
+const DEFAULT_BAIDU_SECURE_CONFIG = {
+  appId: '',
+  apiKey: '',
+};
+
+async function getAiSecureConfig() {
+  return readSecureNamespace(SECURE_STORE_FILE, 'ai', DEFAULT_AI_SECURE_CONFIG);
+}
+
+function toAiSummary(config = DEFAULT_AI_SECURE_CONFIG) {
+  return {
+    secureStorageAvailable: isSecureStorageAvailable(),
+    defaultProvider: config.defaultProvider || 'openai',
+    openai: {
+      baseUrl: config.openai?.baseUrl || DEFAULT_AI_SECURE_CONFIG.openai.baseUrl,
+      model: config.openai?.model || DEFAULT_AI_SECURE_CONFIG.openai.model,
+      organization: config.openai?.organization || '',
+      hasApiKey: !!config.openai?.apiKey,
+      maskedApiKey: maskSecret(config.openai?.apiKey),
+    },
+    anthropic: {
+      baseUrl: config.anthropic?.baseUrl || DEFAULT_AI_SECURE_CONFIG.anthropic.baseUrl,
+      model: config.anthropic?.model || DEFAULT_AI_SECURE_CONFIG.anthropic.model,
+      hasApiKey: !!config.anthropic?.apiKey,
+      maskedApiKey: maskSecret(config.anthropic?.apiKey),
+    },
+  };
+}
+
+async function getBaiduSecureConfig() {
+  return readSecureNamespace(SECURE_STORE_FILE, 'baidu-translate', DEFAULT_BAIDU_SECURE_CONFIG);
+}
+
+function buildAiTranslatePrompts({ sourceLanguage, targetLanguage, text }) {
+  const from = sourceLanguage && sourceLanguage !== 'auto' ? sourceLanguage : '自动检测';
+  const to = targetLanguage || '英语';
+  return {
+    systemPrompt: '你是专业翻译助手，只返回翻译结果本身，不要额外解释，不要添加引号。',
+    userPrompt: `请将以下内容从${from}翻译为${to}，保持原意、术语准确、格式尽量不变：\n\n${text}`,
+  };
+}
+
+function buildVariableNamePrompts({ text, style }) {
+  return {
+    systemPrompt: '你是资深软件工程师，请根据中文语义生成自然、简洁、可读的英文变量名。只返回一个变量名，不要解释。',
+    userPrompt: `请把以下中文语义转换为 ${style} 风格的英文变量名，只返回变量名本身：\n\n${text}`,
+  };
+}
 
 async function ensureDataDir() {
   await fs.mkdir(DATA_DIR, { recursive: true });
@@ -359,6 +425,108 @@ ipcMain.handle('settings:get', async () => {
 ipcMain.handle('settings:set', async (_, payload) => {
   await writeJson(SETTINGS_FILE, payload);
   return payload;
+});
+ipcMain.handle('ai:config-summary:get', async () => {
+  try {
+    const config = await getAiSecureConfig();
+    return toAiSummary(config);
+  } catch {
+    return toAiSummary(DEFAULT_AI_SECURE_CONFIG);
+  }
+});
+ipcMain.handle('ai:config-summary:set', async (_, payload = {}) => {
+  const current = await getAiSecureConfig();
+  const nextConfig = {
+    defaultProvider: payload.defaultProvider || current.defaultProvider || 'openai',
+    openai: {
+      ...DEFAULT_AI_SECURE_CONFIG.openai,
+      ...(current.openai || {}),
+      ...(payload.openai || {}),
+      apiKey: payload.openai?.apiKey ? String(payload.openai.apiKey).trim() : (current.openai?.apiKey || ''),
+    },
+    anthropic: {
+      ...DEFAULT_AI_SECURE_CONFIG.anthropic,
+      ...(current.anthropic || {}),
+      ...(payload.anthropic || {}),
+      apiKey: payload.anthropic?.apiKey ? String(payload.anthropic.apiKey).trim() : (current.anthropic?.apiKey || ''),
+    },
+  };
+  await writeSecureNamespace(SECURE_STORE_FILE, 'ai', nextConfig);
+  return toAiSummary(nextConfig);
+});
+ipcMain.handle('ai:models:list', async (_, payload = {}) => {
+  const config = await getAiSecureConfig();
+  const provider = payload.provider || config.defaultProvider || 'openai';
+  const currentProviderConfig = config[provider] || {};
+  return listAiModels({
+    provider,
+    config: {
+      ...currentProviderConfig,
+      ...(payload.baseUrl ? { baseUrl: String(payload.baseUrl).trim() } : {}),
+    },
+    apiKey: payload.apiKey ? String(payload.apiKey).trim() : (currentProviderConfig.apiKey || ''),
+  });
+});
+ipcMain.handle('translate:baidu-config:get', async () => {
+  try {
+    const config = await getBaiduSecureConfig();
+    return {
+      appId: config.appId || '',
+      hasApiKey: !!config.apiKey,
+    };
+  } catch {
+    return {
+      appId: '',
+      hasApiKey: false,
+    };
+  }
+});
+ipcMain.handle('translate:baidu-config:set', async (_, payload = {}) => {
+  const current = await getBaiduSecureConfig();
+  const nextConfig = {
+    appId: String(payload.appId || current.appId || '').trim(),
+    apiKey: payload.apiKey ? String(payload.apiKey).trim() : (current.apiKey || ''),
+  };
+  await writeSecureNamespace(SECURE_STORE_FILE, 'baidu-translate', nextConfig);
+  return {
+    appId: nextConfig.appId,
+    hasApiKey: !!nextConfig.apiKey,
+  };
+});
+ipcMain.handle('translate:baidu', async (_, payload = {}) => {
+  const config = await getBaiduSecureConfig();
+  return translateWithBaidu({
+    appId: config.appId,
+    apiKey: config.apiKey,
+    text: payload.text,
+    from: payload.from,
+    to: payload.to,
+  });
+});
+ipcMain.handle('translate:ai', async (_, payload = {}) => {
+  const config = await getAiSecureConfig();
+  const provider = payload.provider || config.defaultProvider || 'openai';
+  const providerConfig = config[provider];
+  const prompts = buildAiTranslatePrompts(payload);
+  return invokeAiProvider({
+    provider,
+    config: providerConfig,
+    apiKey: providerConfig?.apiKey,
+    ...prompts,
+  });
+});
+ipcMain.handle('translate:variable-name', async (_, payload = {}) => {
+  const config = await getAiSecureConfig();
+  const provider = payload.provider || config.defaultProvider || 'openai';
+  const providerConfig = config[provider];
+  const prompts = buildVariableNamePrompts(payload);
+  return invokeAiProvider({
+    provider,
+    config: providerConfig,
+    apiKey: providerConfig?.apiKey,
+    temperature: 0.1,
+    ...prompts,
+  });
 });
 ipcMain.handle('todos:get', async () => {
   return readJson(TODOS_FILE, []);
