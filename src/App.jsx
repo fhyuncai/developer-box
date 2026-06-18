@@ -21,6 +21,33 @@ function getEffectiveTheme(themeMode, systemTheme) {
   return themeMode === 'system' ? systemTheme : themeMode;
 }
 
+function getInitialThemeState() {
+  if (typeof window === 'undefined') {
+    return {
+      themeMode: 'system',
+      systemTheme: 'light',
+      effectiveTheme: 'light',
+    };
+  }
+
+  const fallbackSystemTheme = window.matchMedia?.('(prefers-color-scheme: dark)')?.matches ? 'dark' : 'light';
+  const initialThemeState = window.developerBox?.getInitialThemeState?.();
+  const themeMode = initialThemeState?.themeMode === 'light' || initialThemeState?.themeMode === 'dark'
+    ? initialThemeState.themeMode
+    : 'system';
+  const systemTheme = initialThemeState?.systemTheme === 'light' || initialThemeState?.systemTheme === 'dark'
+    ? initialThemeState.systemTheme
+    : fallbackSystemTheme;
+
+  return {
+    themeMode,
+    systemTheme,
+    effectiveTheme: getEffectiveTheme(themeMode, systemTheme),
+  };
+}
+
+const INITIAL_THEME_STATE = getInitialThemeState();
+
 const DEFAULT_PINNED = ['doneCount'];
 const DEFAULT_DASHBOARD_ORDER = ['doneCount'];
 const TOOLS = [
@@ -151,8 +178,8 @@ function normalizeAiConfigSummary(summary) {
 }
 
 export default function App() {
-  const [themeMode, setThemeMode] = useState('system');
-  const [systemTheme, setSystemTheme] = useState('light');
+  const [themeMode, setThemeMode] = useState(INITIAL_THEME_STATE.themeMode);
+  const [systemTheme, setSystemTheme] = useState(INITIAL_THEME_STATE.systemTheme);
   const [todoLists, setTodoLists] = useState([]);
   const [notes, setNotes] = useState([]);
   const [settingsOpen, setSettingsOpen] = useState(false);

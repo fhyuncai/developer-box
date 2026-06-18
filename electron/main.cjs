@@ -1,6 +1,7 @@
 ﻿const { app, BrowserWindow, ipcMain, Menu, nativeTheme, Notification, dialog } = require('electron');
 const path = require('path');
 const os = require('os');
+const fsSync = require('fs');
 const fs = require('fs/promises');
 const { createUpdater } = require('./updater.cjs');
 const { isSecureStorageAvailable, readSecureNamespace, writeSecureNamespace, maskSecret } = require('./secure-store.cjs');
@@ -22,6 +23,9 @@ const DATA_DIR = path.join(os.homedir(), '.developer-box');
 const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
 const TODOS_FILE = path.join(DATA_DIR, 'todos.json');
 const SECURE_STORE_FILE = path.join(DATA_DIR, 'secure-store.json');
+const DEFAULT_SETTINGS = {
+  themeMode: 'system',
+};
 const DEFAULT_AI_SECURE_CONFIG = {
   defaultProvider: 'openai',
   openai: {
@@ -112,13 +116,46 @@ async function readJson(filePath, fallback) {
   }
 }
 
+function readJsonSync(filePath, fallback) {
+  try {
+    const raw = fsSync.readFileSync(filePath, 'utf-8');
+    return JSON.parse(raw);
+  } catch (error) {
+    return fallback;
+  }
+}
+
 async function writeJson(filePath, data) {
   await ensureDataDir();
   await fs.writeFile(filePath, JSON.stringify(data, null, 2), 'utf-8');
 }
 
+function normalizeThemeMode(themeMode) {
+  return themeMode === 'light' || themeMode === 'dark' ? themeMode : 'system';
+}
+
+function getEffectiveTheme(themeMode, systemTheme) {
+  return themeMode === 'system' ? systemTheme : themeMode;
+}
+
+function getThemeBackgroundColor(theme) {
+  return theme === 'dark' ? '#141414' : '#ffffff';
+}
+
 function getSystemTheme() {
   return nativeTheme.shouldUseDarkColors ? 'dark' : 'light';
+}
+
+function getStartupThemeState() {
+  const settings = readJsonSync(SETTINGS_FILE, DEFAULT_SETTINGS);
+  const themeMode = normalizeThemeMode(settings?.themeMode);
+  const systemTheme = getSystemTheme();
+
+  return {
+    themeMode,
+    systemTheme,
+    effectiveTheme: getEffectiveTheme(themeMode, systemTheme),
+  };
 }
 
 function broadcastToAllWindows(channel, payload) {
@@ -300,6 +337,7 @@ function setupMenu() {
 
 function createWindow() {
   const isMac = process.platform === 'darwin';
+  const startupThemeState = getStartupThemeState();
   const window = new BrowserWindow({
     width: 980,
     height: 640,
@@ -309,9 +347,14 @@ function createWindow() {
     show: false,
     titleBarStyle: isMac ? 'hiddenInset' : 'hidden',
     ...(isMac ? { trafficLightPosition: { x: 14, y: 14 } } : {}),
-    backgroundColor: nativeTheme.shouldUseDarkColors ? '#141414' : '#ffffff',
+    backgroundColor: getThemeBackgroundColor(startupThemeState.effectiveTheme),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
+      additionalArguments: [
+        `--developer-box-theme-mode=${startupThemeState.themeMode}`,
+        `--developer-box-system-theme=${startupThemeState.systemTheme}`,
+        `--developer-box-effective-theme=${startupThemeState.effectiveTheme}`,
+      ],
       contextIsolation: true,
       nodeIntegration: false
     }
@@ -434,7 +477,7 @@ ipcMain.handle('app:choose-directory', async (_, payload = {}) => {
   return result.filePaths[0];
 });
 ipcMain.handle('settings:get', async () => {
-  return readJson(SETTINGS_FILE, { themeMode: 'system' });
+  return readJson(SETTINGS_FILE, DEFAULT_SETTINGS);
 });
 ipcMain.handle('settings:set', async (_, payload) => {
   await writeJson(SETTINGS_FILE, payload);

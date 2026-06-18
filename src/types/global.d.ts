@@ -10,6 +10,12 @@ declare global {
     checkins?: Array<Record<string, unknown>>;
   };
 
+  type InitialThemeState = {
+    themeMode: 'system' | 'light' | 'dark';
+    systemTheme: 'light' | 'dark';
+    effectiveTheme: 'light' | 'dark';
+  };
+
   type AiProviderSummary = {
     baseUrl: string;
     model: string;
@@ -95,6 +101,7 @@ declare global {
       getPlatform: () => string;
       getStoragePath: () => Promise<string>;
       getNotesDbPath: () => Promise<string>;
+      getInitialThemeState: () => InitialThemeState;
       getSystemTheme: () => Promise<'light' | 'dark'>;
       getUpdateState: () => Promise<AppUpdateState>;
       checkForUpdates: () => Promise<UpdateCheckResult>;

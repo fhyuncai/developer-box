@@ -3,7 +3,39 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
     <title>Developer Box</title>
+    <style>
+      html,
+      body,
+      #root {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        background: #ffffff;
+      }
+
+      html[data-theme='dark'],
+      html[data-theme='dark'] body,
+      html[data-theme='dark'] #root {
+        background: #141414;
+      }
+    </style>
+    <script>
+      (() => {
+        const fallbackSystemTheme =
+          window.matchMedia?.('(prefers-color-scheme: dark)')?.matches ? 'dark' : 'light';
+        const initialThemeState = window.developerBox?.getInitialThemeState?.() ?? {
+          themeMode: 'system',
+          systemTheme: fallbackSystemTheme,
+          effectiveTheme: fallbackSystemTheme,
+        };
+        const effectiveTheme = initialThemeState.effectiveTheme === 'dark' ? 'dark' : 'light';
+
+        document.documentElement.setAttribute('data-theme', effectiveTheme);
+        document.documentElement.style.colorScheme = effectiveTheme;
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

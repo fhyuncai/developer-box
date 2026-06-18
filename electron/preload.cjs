@@ -1,9 +1,37 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
+function getProcessArgValue(prefix) {
+  const matchedArg = process.argv.find((item) => item.startsWith(prefix));
+  return matchedArg ? matchedArg.slice(prefix.length) : '';
+}
+
+function normalizeThemeMode(themeMode) {
+  return themeMode === 'light' || themeMode === 'dark' ? themeMode : 'system';
+}
+
+function normalizeEffectiveTheme(theme) {
+  return theme === 'dark' ? 'dark' : 'light';
+}
+
+const initialThemeState = (() => {
+  const themeMode = normalizeThemeMode(getProcessArgValue('--developer-box-theme-mode='));
+  const systemTheme = normalizeEffectiveTheme(getProcessArgValue('--developer-box-system-theme='));
+  const effectiveTheme = normalizeEffectiveTheme(
+    getProcessArgValue('--developer-box-effective-theme=') || (themeMode === 'system' ? systemTheme : themeMode)
+  );
+
+  return {
+    themeMode,
+    systemTheme,
+    effectiveTheme,
+  };
+})();
+
 contextBridge.exposeInMainWorld('developerBox', {
   getPlatform: () => process.platform,
   getStoragePath: () => ipcRenderer.invoke('app:get-storage-path'),
   getNotesDbPath: () => ipcRenderer.invoke('app:get-notes-db-path'),
+  getInitialThemeState: () => initialThemeState,
   getSystemTheme: () => ipcRenderer.invoke('app:get-system-theme'),
   getUpdateState: () => ipcRenderer.invoke('updates:get-state'),
   checkForUpdates: () => ipcRenderer.invoke('updates:check'),
