@@ -303,7 +303,7 @@ function createUpdater({ onStateChange } = {}) {
     });
 
     if (!payload || typeof payload !== 'object') {
-      throw new Error('更新配置格式无效。');
+      throw new Error('更新配置格式无效');
     }
 
     const latestVersion = normalizeVersionTag(payload.version);
@@ -312,7 +312,7 @@ function createUpdater({ onStateChange } = {}) {
       : versionToCode(latestVersion);
 
     if (!latestVersion || latestVersionCode <= 0) {
-      throw new Error('更新配置缺少有效的版本信息。');
+      throw new Error('更新配置缺少有效的版本信息');
     }
 
     return {
@@ -337,7 +337,7 @@ function createUpdater({ onStateChange } = {}) {
         const hasMatchingPackage = !!manifest.downloadUrl;
         const hasUpdate = hasNewerVersion && hasMatchingPackage;
         const lastError = hasNewerVersion && !hasMatchingPackage
-          ? '当前系统暂无对应的更新包。'
+          ? '当前系统暂无对应的更新包'
           : '';
 
         const snapshot = setState({
@@ -362,7 +362,7 @@ function createUpdater({ onStateChange } = {}) {
 
         return { status: 'up-to-date', reason, state: snapshot };
       } catch (error) {
-        const message = error?.message || '检查更新失败。';
+        const message = error?.message || '检查更新失败';
         const snapshot = setState({
           checking: false,
           lastCheckedAt: Date.now(),

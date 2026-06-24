@@ -9,10 +9,10 @@ function signBaiduPayload(appId, text, salt, apiKey) {
 async function translateWithBaidu({ appId, apiKey, text, from = 'auto', to = 'en' }) {
   const trimmedText = String(text || '').trim();
   if (!trimmedText) {
-    throw new Error('请输入要翻译的文本。');
+    throw new Error('请输入要翻译的文本');
   }
   if (!appId || !apiKey) {
-    throw new Error('请先配置百度翻译凭证。');
+    throw new Error('请先配置百度翻译凭证');
   }
 
   const salt = `${Date.now()}`;
@@ -44,7 +44,7 @@ async function translateWithBaidu({ appId, apiKey, text, from = 'auto', to = 'en
       : String(data.translation || data.result || '').trim();
 
     if (!resultText) {
-      throw new Error('百度翻译未返回结果。');
+      throw new Error('百度翻译未返回结果');
     }
 
     return {

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   App as AntdApp,
   Button,
@@ -9,6 +9,7 @@ import {
   Select,
   Space,
   Tabs,
+  Tooltip,
   Typography,
 } from 'antd';
 import { CopyOutlined, SettingOutlined, SwapOutlined } from '@ant-design/icons';
@@ -60,7 +61,35 @@ export default function TranslationPage({ aiConfigSummary, onBack, onBackHome })
   const [namingOutput, setNamingOutput] = useState('');
   const defaultProvider = aiConfigSummary?.defaultProvider || 'openai';
   const defaultProviderReady = !!aiConfigSummary?.[defaultProvider]?.hasApiKey;
+  const baiduConfigReady = !!baiduConfigState.appId && baiduConfigState.hasApiKey;
   const [form] = Form.useForm();
+
+  const loadBaiduConfig = async ({ silent = false } = {}) => {
+    try {
+      const config = await window.developerBox.getBaiduTranslateConfig();
+      const nextState = {
+        appId: config?.appId || '',
+        hasApiKey: !!config?.hasApiKey,
+      };
+
+      setBaiduConfigState(nextState);
+      form.setFieldsValue({
+        appId: nextState.appId,
+        apiKey: '',
+      });
+
+      return nextState;
+    } catch (error) {
+      if (!silent) {
+        message.error(error?.message || '读取百度翻译配置失败');
+      }
+      return null;
+    }
+  };
+
+  useEffect(() => {
+    loadBaiduConfig({ silent: true });
+  }, []);
 
   const copyText = async (value) => {
     if (!value) return;
@@ -154,19 +183,7 @@ export default function TranslationPage({ aiConfigSummary, onBack, onBackHome })
 
   const openConfigDrawer = async () => {
     setConfigOpen(true);
-    try {
-      const config = await window.developerBox.getBaiduTranslateConfig();
-      setBaiduConfigState({
-        appId: config?.appId || '',
-        hasApiKey: !!config?.hasApiKey,
-      });
-      form.setFieldsValue({
-        appId: config?.appId || '',
-        apiKey: '',
-      });
-    } catch (error) {
-      message.error(error?.message || '读取百度翻译配置失败');
-    }
+    await loadBaiduConfig();
   };
 
   const handleSaveBaiduConfig = async () => {
@@ -185,9 +202,25 @@ export default function TranslationPage({ aiConfigSummary, onBack, onBackHome })
     }
   };
 
-  const renderActionButtons = ({ submitLabel, submitLoading, onSubmit, onClear, copyValue, disabled = false }) => (
+  const renderActionButtons = ({
+    submitLabel,
+    submitLoading,
+    onSubmit,
+    onClear,
+    copyValue,
+    disabled = false,
+    disabledReason = '',
+  }) => (
     <Space wrap className="translation-toolbar__actions">
-      <Button type="primary" loading={submitLoading} onClick={onSubmit} disabled={disabled}>{submitLabel}</Button>
+      {disabled && disabledReason ? (
+        <Tooltip title={disabledReason}>
+          <span className="translation-disabled-action">
+            <Button type="primary" loading={submitLoading} onClick={onSubmit} disabled>{submitLabel}</Button>
+          </span>
+        </Tooltip>
+      ) : (
+        <Button type="primary" loading={submitLoading} onClick={onSubmit} disabled={disabled}>{submitLabel}</Button>
+      )}
       <Button onClick={onClear}>清空</Button>
       <Button icon={<CopyOutlined />} onClick={() => copyText(copyValue)} disabled={!copyValue}>复制结果</Button>
     </Space>
@@ -201,6 +234,7 @@ export default function TranslationPage({ aiConfigSummary, onBack, onBackHome })
 
       <Tabs
         className="translation-tabs"
+        style={{ flex: 1, minHeight: 0 }}
         activeKey={activeMode}
         onChange={setActiveMode}
         items={[
@@ -208,7 +242,7 @@ export default function TranslationPage({ aiConfigSummary, onBack, onBackHome })
             key: 'standard',
             label: '标准翻译',
             children: (
-              <Flex vertical gap={12}>
+              <Flex vertical gap={12} className="translation-mode-panel">
                 <Flex className="translation-toolbar" gap={12} wrap="wrap" align="center">
                   <Flex className="translation-toolbar__fields" gap={12} wrap="wrap" align="center">
                     <Select value={sourceLang} onChange={setSourceLang} options={BAIDU_LANG_OPTIONS} style={{ width: 160 }} />
@@ -224,12 +258,23 @@ export default function TranslationPage({ aiConfigSummary, onBack, onBackHome })
                       setStandardOutput('');
                     },
                     copyValue: standardOutput,
+                    disabled: !baiduConfigReady,
+                    disabledReason: '请先配置百度翻译 API 凭证',
                   })}
                 </Flex>
                 <div className="translation-grid">
-                  <TextArea rows={10} value={standardInput} onChange={(e) => setStandardInput(e.target.value)} placeholder="输入要翻译的文本" allowClear />
-                  <div className="translation-output-card">
-                    <TextArea rows={10} value={standardOutput} readOnly placeholder="翻译结果" />
+                  <div className="translation-editor-pane">
+                    <TextArea
+                      className="translation-textarea"
+                      style={{ height: '100%' }}
+                      value={standardInput}
+                      onChange={(e) => setStandardInput(e.target.value)}
+                      placeholder="输入要翻译的文本"
+                      allowClear
+                    />
+                  </div>
+                  <div className="translation-editor-pane translation-output-card">
+                    <TextArea className="translation-textarea" style={{ height: '100%' }} value={standardOutput} readOnly placeholder="翻译结果" />
                   </div>
                 </div>
               </Flex>
@@ -239,7 +284,7 @@ export default function TranslationPage({ aiConfigSummary, onBack, onBackHome })
             key: 'ai',
             label: 'AI 翻译',
             children: (
-              <Flex vertical gap={12}>
+              <Flex vertical gap={12} className="translation-mode-panel">
                 <Flex className="translation-toolbar" gap={12} wrap="wrap" align="center">
                   <Flex className="translation-toolbar__fields" gap={12} wrap="wrap" align="center">
                     <Select value={aiSourceLang} onChange={setAiSourceLang} options={BAIDU_LANG_OPTIONS} style={{ width: 160 }} />
@@ -256,12 +301,22 @@ export default function TranslationPage({ aiConfigSummary, onBack, onBackHome })
                     },
                     copyValue: aiOutput,
                     disabled: !defaultProviderReady,
+                    disabledReason: '请先在全局设置中配置 AI 凭证',
                   })}
                 </Flex>
                 <div className="translation-grid">
-                  <TextArea rows={10} value={aiText} onChange={(e) => setAiText(e.target.value)} placeholder="输入要翻译的文本，AI 将结合上下文润色" allowClear />
-                  <div className="translation-output-card">
-                    <TextArea rows={10} value={aiOutput} readOnly placeholder="AI 翻译结果" />
+                  <div className="translation-editor-pane">
+                    <TextArea
+                      className="translation-textarea"
+                      style={{ height: '100%' }}
+                      value={aiText}
+                      onChange={(e) => setAiText(e.target.value)}
+                      placeholder="输入要翻译的文本，AI 将结合上下文润色"
+                      allowClear
+                    />
+                  </div>
+                  <div className="translation-editor-pane translation-output-card">
+                    <TextArea className="translation-textarea" style={{ height: '100%' }} value={aiOutput} readOnly placeholder="AI 翻译结果" />
                   </div>
                 </div>
               </Flex>
@@ -271,7 +326,7 @@ export default function TranslationPage({ aiConfigSummary, onBack, onBackHome })
             key: 'naming',
             label: '变量命名',
             children: (
-              <Flex vertical gap={12}>
+              <Flex vertical gap={12} className="translation-mode-panel">
                 <Flex className="translation-toolbar" gap={12} wrap="wrap" align="center">
                   <Flex className="translation-toolbar__fields" gap={12} wrap="wrap" align="center">
                     <Select value={namingCase} onChange={setNamingCase} options={VARIABLE_CASE_OPTIONS} style={{ width: 180 }} />
@@ -286,12 +341,22 @@ export default function TranslationPage({ aiConfigSummary, onBack, onBackHome })
                     },
                     copyValue: namingOutput,
                     disabled: !defaultProviderReady,
+                    disabledReason: '请先在全局设置中配置 AI 凭证',
                   })}
                 </Flex>
                 <div className="translation-grid">
-                  <TextArea rows={8} value={namingText} onChange={(e) => setNamingText(e.target.value)} placeholder="例如：用户订单支付状态" allowClear />
-                  <div className="translation-output-card">
-                    <TextArea rows={8} value={namingOutput} readOnly placeholder="变量名结果" />
+                  <div className="translation-editor-pane">
+                    <TextArea
+                      className="translation-textarea"
+                      style={{ height: '100%' }}
+                      value={namingText}
+                      onChange={(e) => setNamingText(e.target.value)}
+                      placeholder="例如：用户订单支付状态"
+                      allowClear
+                    />
+                  </div>
+                  <div className="translation-editor-pane translation-output-card">
+                    <TextArea className="translation-textarea" style={{ height: '100%' }} value={namingOutput} readOnly placeholder="变量名结果" />
                   </div>
                 </div>
               </Flex>

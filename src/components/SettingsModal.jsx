@@ -204,13 +204,13 @@ export default function SettingsModal({
             )}
             {!updateState?.canAutoApply && (
               <Typography.Text type="secondary">
-                当前环境不支持自动安装更新，请在构建后的应用中测试。
+                当前环境不支持自动安装更新，请在构建后的应用中测试
               </Typography.Text>
             )}
           </Flex>
         )}
         {!!updateState?.applying && (
-          <Typography.Text type="secondary">更新包已准备完成，应用正在重启。</Typography.Text>
+          <Typography.Text type="secondary">更新包已准备完成，应用正在重启...</Typography.Text>
         )}
         {!!updateState?.lastError && (
           <Typography.Text type="danger">{updateState.lastError}</Typography.Text>

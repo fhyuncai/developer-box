@@ -2,7 +2,11 @@
   color-scheme: light;
   --app-bg: #ffffff;
   --titlebar-height: 44px;
+  --page-wrap-padding-top: 12px;
+  --page-wrap-padding-x: 24px;
+  --page-wrap-padding-bottom: 24px;
   --titlebar-bg: rgba(255, 255, 255, 0.85);
+  --titlebar-fade-bg: rgba(255, 255, 255, 0.95);
   --titlebar-border: rgba(0, 0, 0, 0.08);
   --tab-bg: rgba(15, 23, 42, 0.05);
   --tab-border: rgba(15, 23, 42, 0.08);
@@ -17,6 +21,7 @@
   color-scheme: dark;
   --app-bg: #141414;
   --titlebar-bg: rgba(20, 20, 20, 0.85);
+  --titlebar-fade-bg: rgba(20, 20, 20, 0.96);
   --titlebar-border: rgba(255, 255, 255, 0.08);
   --tab-bg: rgba(255, 255, 255, 0.06);
   --tab-border: rgba(255, 255, 255, 0.08);
@@ -102,21 +107,67 @@ body,
   display: flex;
   align-items: center;
   padding: 0 12px 0 0;
-  -webkit-app-region: no-drag;
+}
+
+.title-tabs-shell {
+  position: relative;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 22px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.18s ease;
+    z-index: 1;
+  }
+
+  &::before {
+    left: 0;
+    background: linear-gradient(90deg, var(--titlebar-fade-bg) 0%, rgba(255, 255, 255, 0) 100%);
+  }
+
+  &::after {
+    right: 0;
+    background: linear-gradient(270deg, var(--titlebar-fade-bg) 0%, rgba(255, 255, 255, 0) 100%);
+  }
+
+  &.has-left-fade::before {
+    opacity: 1;
+  }
+
+  &.has-right-fade::after {
+    opacity: 1;
+  }
 }
 
 .title-tabs {
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   display: flex;
   align-items: center;
   gap: 4px;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;
+  -webkit-app-region: no-drag;
 
   &::-webkit-scrollbar {
     display: none;
   }
+}
+
+.titlebar-drag-spacer {
+  flex: 1 1 auto;
+  min-width: 12px;
+  align-self: stretch;
 }
 
 .title-tab {
@@ -254,7 +305,7 @@ body {
   max-width: 1080px;
   margin: 0 auto;
   width: 100%;
-  padding: 12px 24px 24px;
+  padding: var(--page-wrap-padding-top) var(--page-wrap-padding-x) var(--page-wrap-padding-bottom);
   overflow: auto;
   scrollbar-width: thin;
   scrollbar-color: rgba(128, 128, 128, 0.45) transparent;
@@ -275,16 +326,39 @@ body {
 }
 
 .page-pane {
-  min-height: 100%;
+  // min-height: 100%;
 }
 
 .translation-page {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+
   .ant-tabs-nav {
     margin-bottom: 16px;
   }
 }
 
+.translation-tabs {
+  min-height: 0;
+
+  .ant-tabs-content-holder,
+  .ant-tabs-content,
+  .ant-tabs-tabpane-active {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+  }
+}
+
+.translation-mode-panel {
+  flex: 1;
+  min-height: 0;
+}
+
 .translation-toolbar {
+  flex-shrink: 0;
   justify-content: space-between;
 }
 
@@ -296,20 +370,45 @@ body {
   margin-left: auto;
 }
 
+.translation-disabled-action {
+  display: inline-flex;
+}
+
 .translation-grid {
+  flex: 1;
+  min-height: 0;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
+.translation-editor-pane,
 .translation-output-card {
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  height: calc(100vh - 230px);
+}
+
+.translation-textarea {
+  flex: 1;
+}
+
+.translation-textarea,
+.translation-textarea.ant-input,
+.translation-textarea.ant-input-affix-wrapper textarea,
+.translation-editor-pane textarea {
+  resize: none !important;
 }
 
 @media (max-width: 900px) {
+  .translation-mode-panel {
+    min-height: auto;
+  }
+
   .translation-grid {
     grid-template-columns: 1fr;
+    flex: initial;
   }
 }
 
@@ -353,6 +452,9 @@ textarea,
 
 .page-breadcrumb {
   margin-bottom: 0;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
 }
 
 .page-nav-row {
@@ -381,6 +483,7 @@ textarea,
 }
 
 .hero-title {
+  margin-top: 15px;
   margin-bottom: 0 !important;
 }
 
@@ -394,7 +497,7 @@ textarea,
 }
 
 .content-area {
-  margin-top: 14px;
+  margin-top: 0;
 }
 
 .toolbox-portal {
@@ -600,8 +703,14 @@ textarea,
 }
 
 @media (max-width: 900px) {
+  :root {
+    --page-wrap-padding-top: 8px;
+    --page-wrap-padding-x: 14px;
+    --page-wrap-padding-bottom: 14px;
+  }
+
   .page-wrap {
-    padding: 8px 14px 14px;
+    padding: var(--page-wrap-padding-top) var(--page-wrap-padding-x) var(--page-wrap-padding-bottom);
   }
 
   .todo-overview-stats {

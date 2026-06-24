@@ -40,6 +40,7 @@ export default function TitleBar({ tabs = [], activeTabId, onActivateTab, onClos
           onActivateTab={onActivateTab}
           onCloseTab={onCloseTab}
         />
+        <div className="titlebar-drag-spacer" aria-hidden="true" />
       </div>
 
       <div className="titlebar-actions">

@@ -1,5 +1,28 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
+function cleanIpcErrorMessage(error, channel) {
+  const rawMessage = error?.message ? String(error.message) : String(error || '未知错误');
+  const invokePrefix = `Error invoking remote method '${channel}': `;
+  let nextMessage = rawMessage.startsWith(invokePrefix)
+    ? rawMessage.slice(invokePrefix.length)
+    : rawMessage;
+
+  while (nextMessage.startsWith('Error: ')) {
+    nextMessage = nextMessage.slice('Error: '.length);
+  }
+
+  return nextMessage.trim() || rawMessage;
+}
+
+async function invokeIpc(channel, ...args) {
+  try {
+    return await ipcRenderer.invoke(channel, ...args);
+  } catch (error) {
+    console.error(`[developerBox] IPC invoke failed: ${channel}`, error);
+    throw new Error(cleanIpcErrorMessage(error, channel));
+  }
+}
+
 function getProcessArgValue(prefix) {
   const matchedArg = process.argv.find((item) => item.startsWith(prefix));
   return matchedArg ? matchedArg.slice(prefix.length) : '';
@@ -29,33 +52,33 @@ const initialThemeState = (() => {
 
 contextBridge.exposeInMainWorld('developerBox', {
   getPlatform: () => process.platform,
-  getStoragePath: () => ipcRenderer.invoke('app:get-storage-path'),
-  getNotesDbPath: () => ipcRenderer.invoke('app:get-notes-db-path'),
+  getStoragePath: () => invokeIpc('app:get-storage-path'),
+  getNotesDbPath: () => invokeIpc('app:get-notes-db-path'),
   getInitialThemeState: () => initialThemeState,
-  getSystemTheme: () => ipcRenderer.invoke('app:get-system-theme'),
-  getUpdateState: () => ipcRenderer.invoke('updates:get-state'),
-  checkForUpdates: () => ipcRenderer.invoke('updates:check'),
-  startUpdate: () => ipcRenderer.invoke('updates:start'),
-  chooseDirectory: (payload) => ipcRenderer.invoke('app:choose-directory', payload),
-  getSettings: () => ipcRenderer.invoke('settings:get'),
-  saveSettings: (settings) => ipcRenderer.invoke('settings:set', settings),
-  getAiConfigSummary: () => ipcRenderer.invoke('ai:config-summary:get'),
-  saveAiConfig: (payload) => ipcRenderer.invoke('ai:config-summary:set', payload),
-  listAiModels: (payload) => ipcRenderer.invoke('ai:models:list', payload),
-  getBaiduTranslateConfig: () => ipcRenderer.invoke('translate:baidu-config:get'),
-  saveBaiduTranslateConfig: (payload) => ipcRenderer.invoke('translate:baidu-config:set', payload),
-  translateWithBaidu: (payload) => ipcRenderer.invoke('translate:baidu', payload),
-  translateWithAi: (payload) => ipcRenderer.invoke('translate:ai', payload),
-  generateVariableName: (payload) => ipcRenderer.invoke('translate:variable-name', payload),
-  getTodos: () => ipcRenderer.invoke('todos:get'),
-  saveTodos: (todos) => ipcRenderer.invoke('todos:set', todos),
-  listNotes: () => ipcRenderer.invoke('notes:list'),
-  getNote: (noteId) => ipcRenderer.invoke('notes:get', noteId),
-  createNote: (payload) => ipcRenderer.invoke('notes:create', payload),
-  updateNote: (payload) => ipcRenderer.invoke('notes:update', payload),
-  deleteNote: (noteId) => ipcRenderer.invoke('notes:delete', noteId),
-  duplicateNote: (noteId) => ipcRenderer.invoke('notes:duplicate', noteId),
-  importNoteImage: (noteId) => ipcRenderer.invoke('notes:import-image', noteId),
+  getSystemTheme: () => invokeIpc('app:get-system-theme'),
+  getUpdateState: () => invokeIpc('updates:get-state'),
+  checkForUpdates: () => invokeIpc('updates:check'),
+  startUpdate: () => invokeIpc('updates:start'),
+  chooseDirectory: (payload) => invokeIpc('app:choose-directory', payload),
+  getSettings: () => invokeIpc('settings:get'),
+  saveSettings: (settings) => invokeIpc('settings:set', settings),
+  getAiConfigSummary: () => invokeIpc('ai:config-summary:get'),
+  saveAiConfig: (payload) => invokeIpc('ai:config-summary:set', payload),
+  listAiModels: (payload) => invokeIpc('ai:models:list', payload),
+  getBaiduTranslateConfig: () => invokeIpc('translate:baidu-config:get'),
+  saveBaiduTranslateConfig: (payload) => invokeIpc('translate:baidu-config:set', payload),
+  translateWithBaidu: (payload) => invokeIpc('translate:baidu', payload),
+  translateWithAi: (payload) => invokeIpc('translate:ai', payload),
+  generateVariableName: (payload) => invokeIpc('translate:variable-name', payload),
+  getTodos: () => invokeIpc('todos:get'),
+  saveTodos: (todos) => invokeIpc('todos:set', todos),
+  listNotes: () => invokeIpc('notes:list'),
+  getNote: (noteId) => invokeIpc('notes:get', noteId),
+  createNote: (payload) => invokeIpc('notes:create', payload),
+  updateNote: (payload) => invokeIpc('notes:update', payload),
+  deleteNote: (noteId) => invokeIpc('notes:delete', noteId),
+  duplicateNote: (noteId) => invokeIpc('notes:duplicate', noteId),
+  importNoteImage: (noteId) => invokeIpc('notes:import-image', noteId),
   onOpenSettingsFromMenu: (callback) => {
     const listener = () => callback();
     ipcRenderer.on('menu-open-settings', listener);
@@ -71,14 +94,14 @@ contextBridge.exposeInMainWorld('developerBox', {
     ipcRenderer.on('update-state-changed', listener);
     return () => ipcRenderer.removeListener('update-state-changed', listener);
   },
-  getAlwaysOnTop: () => ipcRenderer.invoke('window:get-always-on-top'),
-  setAlwaysOnTop: (flag) => ipcRenderer.invoke('window:set-always-on-top', flag),
-  loadMarkdown: () => ipcRenderer.invoke('markdown:load'),
-  saveMarkdown: (content) => ipcRenderer.invoke('markdown:save', content),
-  minimizeWindow: () => ipcRenderer.invoke('window:minimize'),
-  toggleMaximize: () => ipcRenderer.invoke('window:toggle-maximize'),
-  closeWindow: () => ipcRenderer.invoke('window:close'),
-  isMaximized: () => ipcRenderer.invoke('window:is-maximized'),
+  getAlwaysOnTop: () => invokeIpc('window:get-always-on-top'),
+  setAlwaysOnTop: (flag) => invokeIpc('window:set-always-on-top', flag),
+  loadMarkdown: () => invokeIpc('markdown:load'),
+  saveMarkdown: (content) => invokeIpc('markdown:save', content),
+  minimizeWindow: () => invokeIpc('window:minimize'),
+  toggleMaximize: () => invokeIpc('window:toggle-maximize'),
+  closeWindow: () => invokeIpc('window:close'),
+  isMaximized: () => invokeIpc('window:is-maximized'),
   onMaximizeChanged: (callback) => {
     const listener = (_, value) => callback(value);
     ipcRenderer.on('window-maximize-changed', listener);
@@ -89,5 +112,5 @@ contextBridge.exposeInMainWorld('developerBox', {
     ipcRenderer.on('notification-open-checkin', listener);
     return () => ipcRenderer.removeListener('notification-open-checkin', listener);
   },
-  updateCheckins: (checkins) => ipcRenderer.invoke('checkins:update', checkins),
+  updateCheckins: (checkins) => invokeIpc('checkins:update', checkins),
 });

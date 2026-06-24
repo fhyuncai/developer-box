@@ -83,7 +83,7 @@ export default function TokenGeneratorTool() {
       </Space>
 
       {charset.length === 0 ? (
-        <Typography.Text type="danger">请至少启用一种字符类型。</Typography.Text>
+        <Typography.Text type="danger">请至少启用一种字符类型</Typography.Text>
       ) : (
         <Input.TextArea
           value={token}

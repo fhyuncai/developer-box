@@ -179,7 +179,7 @@ export default function SubnetTool() {
         placeholder="示例: 192.168.0.1/24 或 2001:db8::1/64"
       />
       <Typography.Text type="secondary">
-        支持带掩码与不带掩码输入；不带掩码或仅含 / 时默认 IPv4 使用 /32，IPv6 使用 /128。
+        支持带掩码与不带掩码输入，默认 IPv4 使用 /32，IPv6 使用 /128
       </Typography.Text>
 
       {result.error ? (

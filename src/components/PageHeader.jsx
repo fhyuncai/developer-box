@@ -39,7 +39,7 @@ export default function PageHeader({
   const normalizedChildren = Children.map(children, forceTooltipBottom);
 
   return (
-    <Flex justify="space-between" align="center" wrap="wrap" gap={12} className={classes}>
+    <Flex justify="space-between" align="flex-start" wrap="wrap" gap={12} className={classes}>
       <BreadcrumbNav items={items} />
       <Flex gap={8} align="center" wrap="wrap" className="page-nav-actions">
         {normalizedChildren}

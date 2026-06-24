@@ -109,7 +109,7 @@ async function runWithRetry(task) {
 
 async function callOpenAi({ config, apiKey, systemPrompt, userPrompt, temperature = 0.2 }) {
   if (!apiKey) {
-    throw new Error('当前 OpenAI 兼容提供商未配置 API Key。');
+    throw new Error('当前 OpenAI 兼容提供商未配置 API Key');
   }
 
   const url = joinApiUrl(config.baseUrl, 'chat/completions');
@@ -133,7 +133,7 @@ async function callOpenAi({ config, apiKey, systemPrompt, userPrompt, temperatur
 
     const content = normalizeOpenAiContent(response?.data?.choices?.[0]?.message?.content);
     if (!content) {
-      throw new Error('模型未返回可用内容。');
+      throw new Error('模型未返回可用内容');
     }
 
     return {
@@ -148,7 +148,7 @@ async function callOpenAi({ config, apiKey, systemPrompt, userPrompt, temperatur
 
 async function callAnthropic({ config, apiKey, systemPrompt, userPrompt, temperature = 0.2 }) {
   if (!apiKey) {
-    throw new Error('当前 Anthropic 提供商未配置 API Key。');
+    throw new Error('当前 Anthropic 提供商未配置 API Key');
   }
 
   const url = joinApiUrl(config.baseUrl, 'v1/messages');
@@ -174,7 +174,7 @@ async function callAnthropic({ config, apiKey, systemPrompt, userPrompt, tempera
 
     const content = normalizeAnthropicContent(response?.data?.content);
     if (!content) {
-      throw new Error('模型未返回可用内容。');
+      throw new Error('模型未返回可用内容');
     }
 
     return {
@@ -196,7 +196,7 @@ async function invokeAiProvider({ provider, config, apiKey, systemPrompt, userPr
 
 async function listOpenAiModels({ config, apiKey }) {
   if (!apiKey) {
-    throw new Error('请先输入 API Key 后再获取模型列表。');
+    throw new Error('请先输入 API Key 后再获取模型列表');
   }
 
   try {
@@ -220,7 +220,7 @@ async function listOpenAiModels({ config, apiKey }) {
 
 async function listAnthropicModels({ config, apiKey }) {
   if (!apiKey) {
-    throw new Error('请先输入 API Key 后再获取模型列表。');
+    throw new Error('请先输入 API Key 后再获取模型列表');
   }
 
   try {

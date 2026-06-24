@@ -12,7 +12,7 @@ function isSecureStorageAvailable() {
 
 function assertSecureStorageAvailable() {
   if (!isSecureStorageAvailable()) {
-    throw new Error('当前系统安全存储不可用，无法保存敏感配置。');
+    throw new Error('当前系统安全存储不可用，无法保存敏感配置');
   }
 }
 
@@ -50,7 +50,7 @@ async function readSecureNamespace(filePath, namespace, fallback = {}) {
       ...(parsed && typeof parsed === 'object' ? parsed : {}),
     };
   } catch {
-    throw new Error('读取安全配置失败，请重新保存相关凭证。');
+    throw new Error('读取安全配置失败，请重新保存相关凭证');
   }
 }
 
