@@ -302,8 +302,6 @@ body {
   flex: 1;
   min-height: 0; /* required for overflow:auto to work inside a flex column */
   height: calc(100% - var(--titlebar-height));
-  max-width: 1080px;
-  margin: 0 auto;
   width: 100%;
   padding: var(--page-wrap-padding-top) var(--page-wrap-padding-x) var(--page-wrap-padding-bottom);
   overflow: auto;
