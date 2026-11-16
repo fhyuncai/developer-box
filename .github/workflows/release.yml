@@ -182,6 +182,7 @@ jobs:
           overwrite_files: true
 
       - name: Upload files to OSS
+        timeout-minutes: 15
         env:
           ALIYUN_ACCESS_KEY_ID: ${{ secrets.ALIYUN_ACCESS_KEY_ID }}
           ALIYUN_ACCESS_KEY_SECRET: ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}
