@@ -59,11 +59,12 @@ jobs:
       matrix:
         include:
           - platform: windows
-            runner: windows-latest
+            # The bundled node-gyp supports Visual Studio 2022.
+            runner: windows-2022
             build_target: --win
           - platform: mac-arm64
-            runner: macos-14
-            build_target: --mac
+            runner: macos-26
+            build_target: --mac --arm64
 
     steps:
       - name: Checkout synced release source
